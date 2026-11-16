@@ -1,0 +1,7 @@
+modelo,dif_max_kg_ha
+Naive Lag1,0.0
+Panel FE-ARDL,1.6589183360338211e-9
+Ridge,1.000444171950221e-11
+ElasticNet,2.9545506549766287e-5
+XGBoost (prof. 2),2425.5953281250004
+Ensamble informado,1212.7978515618888

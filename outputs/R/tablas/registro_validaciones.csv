@@ -1,0 +1,62 @@
+rama,prueba,ok,detalle
+Datos,Existe ENA_cultivo_filas.csv,TRUE,
+Datos,SHA-256 ENA_cultivo_filas.csv,TRUE,7ad30d56d047
+Datos,Existe ENA_productores.csv,TRUE,
+Datos,SHA-256 ENA_productores.csv,TRUE,57988a3ad07f
+Datos,Existe series_ENA_papa.xlsx,TRUE,
+Datos,SHA-256 series_ENA_papa.xlsx,TRUE,37026ebabe7f
+Datos,Filas de cultivo = 139 466,TRUE,139466
+Datos,Filas válidas = 129 915,TRUE,129915
+Datos,Sin 2020 en microdatos,TRUE,
+Datos,"Rendimiento de filas válidas en [300, 80 000] kg/ha",TRUE,
+Datos,Factores de expansión positivos,TRUE,
+Datos,Filas válidas sin ubigeo: 142 (solo 2024-2025; cuentan en la serie nacional),TRUE,142
+Datos,Mismo número de celdas año-departamento,TRUE,196 de 196
+Datos,Panel reconstruido = Excel (dif. < 1e-6),TRUE,máx = 5.82e-11
+Datos,Serie nacional reconstruida = Excel,TRUE,
+Datos,Panel balanceado 19 x 10 = 190,TRUE,
+Datos,Excluidos solo Loreto y San Martín,TRUE,"Loreto, San Martín"
+Datos,Sin duplicados año-departamento,TRUE,
+Datos,"Covariables en [0, 100] %",TRUE,
+Datos,Sin faltantes en covariables tras imputar crédito,TRUE,
+Datos,Crédito imputado solo en 2021,TRUE,
+Datos,y_lag de 2021 es el valor de 2019,TRUE,
+Descriptivo,Medias = Cuadro 1 del artículo (±0.01),TRUE,
+Descriptivo,Media nacional = 11 138.60,TRUE,
+Descriptivo,Correlaciones = artículo (±0.005),TRUE,
+Descriptivo,Modelo EF estimado con 190 obs. y sin coeficientes NA,TRUE,
+Predictivo,95 pronósticos fuera de muestra (19 x 5),TRUE,
+Predictivo,Sin pronósticos NA,TRUE,
+Predictivo,Naive Lag1 = artículo (MAE y RMSE ±0.01),TRUE,RMSE 3361.84 vs 3361.84
+Predictivo,Panel FE-ARDL = artículo (MAE y RMSE ±0.01),TRUE,RMSE 3829.68 vs 3829.68
+Predictivo,Ridge = artículo (MAE y RMSE ±0.01),TRUE,RMSE 3346.52 vs 3346.52
+Predictivo,ElasticNet = artículo (MAE y RMSE ±0.01),TRUE,RMSE 5007.97 vs 5007.97
+Predictivo,Pronósticos deterministas = Python (dif. < 0.01 kg/ha),TRUE,
+Predictivo,ElasticNet = Python (dif. < 1 kg/ha; sklearn usa tol = 1e-4),TRUE,
+Predictivo,"XGBoost semilla 7 = Python (dif. < 0.01 kg/ha, precisión float32)",TRUE,
+Predictivo,ElasticNet cumple KKT (|grad| < 1e-6),TRUE,8.2e-12
+Predictivo,Ensamble con RMSE < ingenuo en la mayoría de semillas,TRUE,10 de 10
+Predictivo,"caret (lm, walk-forward) = FE-ARDL propio",TRUE,dif máx 0.0e+00
+Predictivo,Conformal mejora la cobertura respecto al gaussiano,TRUE,
+Predictivo,Cobertura conformal a menos de 10 pp del nominal,TRUE,
+Predictivo,33 casos con heladas >= 5 % (igual que el artículo),TRUE,33
+Prescriptivo,Pronóstico 2026 completo y positivo,TRUE,
+Prescriptivo,Hay departamentos priorizados,TRUE,"Puno, Cusco, La Libertad, Huancavelica, Pasco, Apurímac"
+Prescriptivo,Matriz de covarianza de palancas definida positiva,TRUE,
+Prescriptivo,Insumos sin faltantes,TRUE,
+Prescriptivo,Plan puntual - respeta el presupuesto,TRUE,
+Prescriptivo,Plan puntual - respeta topes por palanca y 100 %,TRUE,
+Prescriptivo,Plan puntual - ningún departamento supera el 25 %,TRUE,
+Prescriptivo,Plan puntual - cuota de equidad cumplida,TRUE,
+Prescriptivo,Plan puntual - objetivo = suma de valores,TRUE,
+Prescriptivo,Plan puntual - supera al reparto proporcional,TRUE,
+Prescriptivo,Plan robusto - respeta el presupuesto,TRUE,
+Prescriptivo,Plan robusto - respeta topes por palanca y 100 %,TRUE,
+Prescriptivo,Plan robusto - ningún departamento supera el 25 %,TRUE,
+Prescriptivo,Plan robusto - cuota de equidad cumplida,TRUE,
+Prescriptivo,Plan robusto - objetivo = suma de valores,TRUE,
+Prescriptivo,Plan robusto - supera al reparto proporcional,TRUE,
+Prescriptivo,"Montecarlo = distribución exacta (media a < 4 EE, P05 a < 0.1 DE)",TRUE,
+Prescriptivo,Media exacta = valor del plan puntual,TRUE,
+Prescriptivo,Frontera no decreciente en el presupuesto,TRUE,
+Comunicación,Pruebas testthat/Shiny sin fallas,TRUE,"26 expectativas, 0 omitidas"

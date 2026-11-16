@@ -1,0 +1,9 @@
+archivo,prueba,aprobadas,fallidas,omitida
+test-funciones.R,"escalador replica StandardScaler (media 0, DE poblacional 1)",2,0,FALSE
+test-funciones.R,Ridge con alpha -> 0 coincide con MCO,1,0,FALSE
+test-funciones.R,ElasticNet cumple KKT y anula todo con penalización grande,2,0,FALSE
+test-funciones.R,métricas y cuantil conformal en casos conocidos,6,0,FALSE
+test-funciones.R,programa lineal: caso de juguete con solución conocida,5,0,FALSE
+test-funciones.R,efectos robustos nunca son negativos,2,0,FALSE
+test-shiny.R,el servidor recalcula el plan al cambiar presupuesto y tipo de efecto,5,0,FALSE
+test-shiny.R,shinytest2: la app abre y muestra los indicadores,3,0,FALSE

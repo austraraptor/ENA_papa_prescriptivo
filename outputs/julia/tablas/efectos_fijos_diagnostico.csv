@@ -1,0 +1,4 @@
+prueba,valor
+"Heterocedasticidad (Breusch-Pagan, ncvTest)",1.1913668256772667e-34
+Normalidad de residuos (Shapiro-Wilk),4.596464069334973e-9
+VIF máximo de covariables,2.458827109929121

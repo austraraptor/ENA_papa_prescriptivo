@@ -1,0 +1,8 @@
+Rama 2 OK: panel 190 filas; reconstrucción máx dif = 2.62e-10
+Rama 3 OK: R² = 0.864
+Rama 4 OK: RMSE ensamble = 3047.04
+Rama 5 OK: plan puntual S/ 509.8 M; robusto S/ 131.7 M
+Test Summary:             | Pass  Total  Time
+Pipeline ENA papa (Julia) |   15     15  1.8s
+Rama 6 OK: 63 validaciones; todas aprobadas = true
+PIPELINE JULIA TERMINADO en 73 s - 63/63 validaciones aprobadas
