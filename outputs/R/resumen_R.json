@@ -1,0 +1,656 @@
+{
+  "lenguaje": "R",
+  "version": "R version 4.5.3 (2026-03-11)",
+  "segundos": 31.8293054104,
+  "validaciones": 61,
+  "validaciones_ok": 61,
+  "modelos": [
+    {
+      "modelo": "Naive Lag1",
+      "MAE": 2044.9652157786,
+      "RMSE": 3361.8384556458,
+      "MAPE": 17.4346530303,
+      "sMAPE": 16.6022641928
+    },
+    {
+      "modelo": "Panel FE-ARDL",
+      "MAE": 2601.9576541554,
+      "RMSE": 3829.6824098682,
+      "MAPE": 23.9466369279,
+      "sMAPE": 24.3288301622
+    },
+    {
+      "modelo": "Ridge",
+      "MAE": 2240.121771703,
+      "RMSE": 3346.5212198952,
+      "MAPE": 22.1139632636,
+      "sMAPE": 19.9359208648
+    },
+    {
+      "modelo": "ElasticNet",
+      "MAE": 3694.5888020237,
+      "RMSE": 5007.9726607476,
+      "MAPE": 44.7370302526,
+      "sMAPE": 32.4793531002
+    },
+    {
+      "modelo": "XGBoost (prof. 2)",
+      "MAE": 2349.3640419089,
+      "RMSE": 3300.1533327465,
+      "MAPE": 25.6013109867,
+      "sMAPE": 20.904025865
+    },
+    {
+      "modelo": "Ensamble informado",
+      "MAE": 2194.2210158908,
+      "RMSE": 3092.6553300573,
+      "MAPE": 21.0989161804,
+      "sMAPE": 19.1515618598
+    }
+  ],
+  "conformal": [
+    {
+      "Nivel": "80 %",
+      "Metodo": "Gaussiano (sin calibrar)",
+      "Cobertura": 50.5263157895,
+      "Error": -29.4736842105,
+      "Ancho": 3298.7106842948,
+      "Winkler": 14030.0776246437
+    },
+    {
+      "Nivel": "80 %",
+      "Metodo": "Split-conformal",
+      "Cobertura": 81.0526315789,
+      "Error": 1.0526315789,
+      "Ancho": 7420.5482191296,
+      "Winkler": 11481.7542992162
+    },
+    {
+      "Nivel": "90 %",
+      "Metodo": "Gaussiano (sin calibrar)",
+      "Cobertura": 58.9473684211,
+      "Error": -31.0526315789,
+      "Ancho": 4233.8493270227,
+      "Winkler": 21594.7057790591
+    },
+    {
+      "Nivel": "90 %",
+      "Metodo": "Split-conformal",
+      "Cobertura": 92.6315789474,
+      "Error": 2.6315789474,
+      "Ancho": 10694.7084425994,
+      "Winkler": 14416.2934080061
+    }
+  ],
+  "heladas": [
+    {
+      "Regimen": "Alta incidencia (>= 5 %)",
+      "Modelo": "Naive Lag1",
+      "Obs": 33,
+      "MAE": 1880.0425236172,
+      "RMSE": 2827.449301249,
+      "MAPE": 17.9855760827,
+      "sMAPE": 17.5657068621
+    },
+    {
+      "Regimen": "Alta incidencia (>= 5 %)",
+      "Modelo": "Ensamble informado",
+      "Obs": 33,
+      "MAE": 1657.8915482221,
+      "RMSE": 2268.5296064613,
+      "MAPE": 15.376914924,
+      "sMAPE": 14.9800201802
+    },
+    {
+      "Regimen": "Baja incidencia (< 5 %)",
+      "Modelo": "Naive Lag1",
+      "Obs": 62,
+      "MAE": 2132.7466487032,
+      "RMSE": 3614.1935610313,
+      "MAPE": 17.1414197928,
+      "sMAPE": 16.0894640624
+    },
+    {
+      "Regimen": "Baja incidencia (< 5 %)",
+      "Modelo": "Ensamble informado",
+      "Obs": 62,
+      "MAE": 2479.6867002952,
+      "RMSE": 3451.9831539805,
+      "MAPE": 24.1444974944,
+      "sMAPE": 21.3718985603
+    }
+  ],
+  "sensibilidad": [
+    {
+      "Escenario": "Base: ventana expansiva, 10 covariables, profundidad 2",
+      "MAE": 2194.2210158908,
+      "RMSE": 3092.6553300573,
+      "MAPE": 21.0989161804,
+      "sMAPE": 19.1515618598
+    },
+    {
+      "Escenario": "Ventana móvil de 4 años",
+      "MAE": 2203.1451618361,
+      "RMSE": 3192.6621736365,
+      "MAPE": 20.4663412382,
+      "sMAPE": 18.8196788121
+    },
+    {
+      "Escenario": "Ventana móvil de 3 años",
+      "MAE": 2140.8807179572,
+      "RMSE": 2964.9808528548,
+      "MAPE": 20.423386338,
+      "sMAPE": 18.8775398788
+    },
+    {
+      "Escenario": "XGBoost con profundidad 3",
+      "MAE": 2219.3477989764,
+      "RMSE": 3141.8790764092,
+      "MAPE": 21.4863750217,
+      "sMAPE": 19.2631285648
+    },
+    {
+      "Escenario": "Sin covariables de pérdidas climáticas",
+      "MAE": 1972.5450274711,
+      "RMSE": 2907.4057441968,
+      "MAPE": 18.237892006,
+      "sMAPE": 16.5675473459
+    },
+    {
+      "Escenario": "Solo riego, semilla y fertilizante",
+      "MAE": 2037.6181063081,
+      "RMSE": 3016.3461855259,
+      "MAPE": 20.4109394362,
+      "sMAPE": 17.2702030392
+    }
+  ],
+  "efectos": [
+    {
+      "var": "pct_area_con_riego",
+      "beta": 4.0530355894,
+      "ee": 28.9534385282,
+      "beta_puntual": 4.0530355894,
+      "beta_robusto": 0
+    },
+    {
+      "var": "pct_area_semilla_cert",
+      "beta": 70.4555821796,
+      "ee": 18.0221766168,
+      "beta_puntual": 70.4555821796,
+      "beta_robusto": 47.3592335218
+    },
+    {
+      "var": "pct_asist",
+      "beta": 100.9849590408,
+      "ee": 65.7871167442,
+      "beta_puntual": 100.9849590408,
+      "beta_robusto": 16.6753765847
+    },
+    {
+      "var": "pct_credito",
+      "beta": 43.7357026799,
+      "ee": 52.4666319588,
+      "beta_puntual": 43.7357026799,
+      "beta_robusto": 0
+    }
+  ],
+  "alerta": [
+    {
+      "DEPARTAMENTO": "Lambayeque",
+      "y_2025": 2392.4019040068,
+      "pron_2026": 4336.1684510432,
+      "lo80": 676.3164049599,
+      "hi80": 7996.0204971265,
+      "p25": 3309.5997044816,
+      "media": 4037.1981225784,
+      "helada_media": 0.82548591333,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": true,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Piura",
+      "y_2025": 5926.2325472219,
+      "pron_2026": 5557.6003488744,
+      "lo80": 1897.7483027911,
+      "hi80": 9217.4523949577,
+      "p25": 6405.5223130603,
+      "media": 6924.3446932528,
+      "helada_media": 1.0962426025,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": true,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Puno",
+      "y_2025": 6552.230383081,
+      "pron_2026": 5670.4775739961,
+      "lo80": 2010.6255279128,
+      "hi80": 9330.3296200794,
+      "p25": 5310.7051205851,
+      "media": 6017.7082929368,
+      "helada_media": 22.0095646369,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": true,
+      "prioritario": true
+    },
+    {
+      "DEPARTAMENTO": "Cusco",
+      "y_2025": 8813.0338169124,
+      "pron_2026": 8307.4861932035,
+      "lo80": 4647.6341471202,
+      "hi80": 11967.3382392868,
+      "p25": 6709.5305707736,
+      "media": 7298.6181205114,
+      "helada_media": 9.9069473265,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": true,
+      "prioritario": true
+    },
+    {
+      "DEPARTAMENTO": "Áncash",
+      "y_2025": 8467.4398572397,
+      "pron_2026": 8749.8587825656,
+      "lo80": 5090.0067364823,
+      "hi80": 12409.7108286489,
+      "p25": 8172.2327409358,
+      "media": 8559.6078306187,
+      "helada_media": 1.0880194157,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": true,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Moquegua",
+      "y_2025": 8110.8785209489,
+      "pron_2026": 8878.8250164397,
+      "lo80": 5218.9729703564,
+      "hi80": 12538.677062523,
+      "p25": 9274.0248789742,
+      "media": 10428.869439956,
+      "helada_media": 4.0621421099,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": true,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Cajamarca",
+      "y_2025": 8670.0717244695,
+      "pron_2026": 9018.0495723992,
+      "lo80": 5358.1975263159,
+      "hi80": 12677.9016184825,
+      "p25": 8707.753401111,
+      "media": 9081.1164346629,
+      "helada_media": 2.0367711381,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": true,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "La Libertad",
+      "y_2025": 10511.371458665,
+      "pron_2026": 10608.5479714067,
+      "lo80": 6948.6959253234,
+      "hi80": 14268.40001749,
+      "p25": 10579.1660001627,
+      "media": 11142.6956935363,
+      "helada_media": 5.9394185901,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": false,
+      "prioritario": true
+    },
+    {
+      "DEPARTAMENTO": "Huancavelica",
+      "y_2025": 11522.9708828882,
+      "pron_2026": 10866.5748121948,
+      "lo80": 7206.7227661115,
+      "hi80": 14526.4268582781,
+      "p25": 8167.7987428689,
+      "media": 9141.9287225865,
+      "helada_media": 8.9789716928,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": true,
+      "prioritario": true
+    },
+    {
+      "DEPARTAMENTO": "Pasco",
+      "y_2025": 12641.4572909209,
+      "pron_2026": 11516.5323877328,
+      "lo80": 7856.6803416495,
+      "hi80": 15176.3844338161,
+      "p25": 12332.2613075141,
+      "media": 13559.5471246142,
+      "helada_media": 5.0454914041,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": false,
+      "prioritario": true
+    },
+    {
+      "DEPARTAMENTO": "Huánuco",
+      "y_2025": 11632.7085920412,
+      "pron_2026": 11760.9581366027,
+      "lo80": 8101.1060905194,
+      "hi80": 15420.810182686,
+      "p25": 11451.5594735802,
+      "media": 12368.994404776,
+      "helada_media": 4.0175768317,
+      "alerta": true,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Apurímac",
+      "y_2025": 12010.9202540261,
+      "pron_2026": 11925.4294340875,
+      "lo80": 8265.5773880042,
+      "hi80": 15585.2814801708,
+      "p25": 9758.7737465052,
+      "media": 10448.1542342794,
+      "helada_media": 5.4339555061,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": true,
+      "prioritario": true
+    },
+    {
+      "DEPARTAMENTO": "Ayacucho",
+      "y_2025": 13266.5732779942,
+      "pron_2026": 12690.462504609,
+      "lo80": 9030.6104585257,
+      "hi80": 16350.3145506923,
+      "p25": 10050.6667664779,
+      "media": 11353.2291338886,
+      "helada_media": 8.5063233566,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": true,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Tacna",
+      "y_2025": 12526.5814375893,
+      "pron_2026": 13299.5741721488,
+      "lo80": 9639.7221260655,
+      "hi80": 16959.4262182321,
+      "p25": 11371.6002945916,
+      "media": 12262.9424342923,
+      "helada_media": 3.1953974932,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Amazonas",
+      "y_2025": 14565.5533995713,
+      "pron_2026": 13725.7042984972,
+      "lo80": 10065.8522524139,
+      "hi80": 17385.5563445805,
+      "p25": 12063.1253907197,
+      "media": 12751.4671882422,
+      "helada_media": 0.30251302798,
+      "alerta": false,
+      "riesgo_bajo_p25": true,
+      "helada_alta": false,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Junín",
+      "y_2025": 19978.2259167063,
+      "pron_2026": 18440.1894374899,
+      "lo80": 14780.3373914066,
+      "hi80": 22100.0414835732,
+      "p25": 12008.4755579213,
+      "media": 13488.4023544069,
+      "helada_media": 10.9810395258,
+      "alerta": false,
+      "riesgo_bajo_p25": false,
+      "helada_alta": true,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Arequipa",
+      "y_2025": 17947.3745659856,
+      "pron_2026": 22056.9574790831,
+      "lo80": 18397.1054329998,
+      "hi80": 25716.8095251664,
+      "p25": 17608.5101038232,
+      "media": 20976.7971099989,
+      "helada_media": 7.3594314007,
+      "alerta": false,
+      "riesgo_bajo_p25": false,
+      "helada_alta": true,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Ica",
+      "y_2025": 25601.2360687984,
+      "pron_2026": 24274.1449617851,
+      "lo80": 20614.2929157018,
+      "hi80": 27933.9970078684,
+      "p25": 18752.3731564318,
+      "media": 22924.5586785077,
+      "helada_media": 3.8945771979,
+      "alerta": false,
+      "riesgo_bajo_p25": false,
+      "helada_alta": false,
+      "bajo_promedio": false,
+      "prioritario": false
+    },
+    {
+      "DEPARTAMENTO": "Lima",
+      "y_2025": 24918.8873614453,
+      "pron_2026": 24816.9435101174,
+      "lo80": 21157.0914640341,
+      "hi80": 28476.7955562007,
+      "p25": 20659.5015224456,
+      "media": 23175.9343850493,
+      "helada_media": 2.8448261606,
+      "alerta": false,
+      "riesgo_bajo_p25": false,
+      "helada_alta": false,
+      "bajo_promedio": false,
+      "prioritario": false
+    }
+  ],
+  "plan_puntual": {
+    "valor": 509768419.72610372,
+    "gasto": 50000000.000005916,
+    "precio_sombra": 6.0003436309
+  },
+  "plan_robusto": {
+    "valor": 131748146.89392819,
+    "gasto": 49999999.999988832,
+    "precio_sombra": 2.1956808421
+  },
+  "por_palanca": [
+    {
+      "plan": "Plan puntual",
+      "palanca": "Asistencia técnica",
+      "costo": 43417291.862913907,
+      "t_adic": 355225.8835122695,
+      "valor": 456166408.55169463
+    },
+    {
+      "plan": "Plan puntual",
+      "palanca": "Crédito agrario",
+      "costo": 6582708.1370920129,
+      "t_adic": 42222.1667384537,
+      "valor": 53602011.174467683
+    },
+    {
+      "plan": "Plan robusto",
+      "palanca": "Asistencia técnica",
+      "costo": 8459137.2012461573,
+      "t_adic": 17677.367652142,
+      "valor": 24145739.713212352
+    },
+    {
+      "plan": "Plan robusto",
+      "palanca": "Semilla certificada",
+      "costo": 41540862.798742674,
+      "t_adic": 65578.1140661353,
+      "valor": 107602407.18074033
+    }
+  ],
+  "montecarlo": [
+    {
+      "plan": "Plan puntual",
+      "valor_medio": 508454607.03201151,
+      "p05": 78970255.962023661,
+      "p95": 929492178.32752883,
+      "bc_medio": 10.1690921406,
+      "prob_bc_menor_1": 0.03995,
+      "media_exacta": 509768419.72616231,
+      "de_exacta": 259242580.92510831,
+      "p05_exacto": 83352320.231237233,
+      "p95_exacto": 936184519.2210871,
+      "prob_bc_menor_1_exacta": 0.03807240234
+    },
+    {
+      "plan": "Plan robusto",
+      "valor_medio": 305857796.98870838,
+      "p05": 137615906.76668122,
+      "p95": 473487366.53027761,
+      "bc_medio": 6.1171559398,
+      "prob_bc_menor_1": 0.00495,
+      "media_exacta": 306303373.89714265,
+      "de_exacta": 101842866.41750948,
+      "p05_exacto": 138786765.69116786,
+      "p95_exacto": 473819982.10311735,
+      "prob_bc_menor_1_exacta": 0.005923736316
+    }
+  ],
+  "equidad": [
+    {
+      "cuota": 0,
+      "valor": 510083178.87796217,
+      "costo_equidad": 0
+    },
+    {
+      "cuota": 0.1,
+      "valor": 510083178.87796211,
+      "costo_equidad": 5.9604644775e-08
+    },
+    {
+      "cuota": 0.2,
+      "valor": 510083178.87796211,
+      "costo_equidad": 5.9604644775e-08
+    },
+    {
+      "cuota": 0.3,
+      "valor": 509768419.72610372,
+      "costo_equidad": 314759.151858449
+    },
+    {
+      "cuota": 0.4,
+      "valor": 506540354.54157567,
+      "costo_equidad": 3542824.3363865018
+    },
+    {
+      "cuota": 0.5,
+      "valor": 502174938.51706177,
+      "costo_equidad": 7908240.3609004021
+    }
+  ],
+  "presupuesto_eficiente": [
+    {
+      "tipo": "puntual",
+      "B_max_eficiente": 215000000
+    },
+    {
+      "tipo": "robusto",
+      "B_max_eficiente": 130000000
+    }
+  ],
+  "semillas": [
+    {
+      "semilla": 7,
+      "RMSE_xgb": 3300.1533327465,
+      "RMSE_ens": 3092.6553300573,
+      "MAE_ens": 2194.2210158908
+    },
+    {
+      "semilla": 8,
+      "RMSE_xgb": 3300.8212107112,
+      "RMSE_ens": 3063.5815365851,
+      "MAE_ens": 2145.1863506933
+    },
+    {
+      "semilla": 9,
+      "RMSE_xgb": 3266.1614556785,
+      "RMSE_ens": 3051.3531959022,
+      "MAE_ens": 2161.550521751
+    },
+    {
+      "semilla": 10,
+      "RMSE_xgb": 3247.1265663885,
+      "RMSE_ens": 3041.3971429323,
+      "MAE_ens": 2157.4189394542
+    },
+    {
+      "semilla": 11,
+      "RMSE_xgb": 3335.9436920201,
+      "RMSE_ens": 3065.4453073413,
+      "MAE_ens": 2142.3302720466
+    },
+    {
+      "semilla": 12,
+      "RMSE_xgb": 3317.0354609743,
+      "RMSE_ens": 3069.2976333284,
+      "MAE_ens": 2147.0240845868
+    },
+    {
+      "semilla": 13,
+      "RMSE_xgb": 3323.3148376686,
+      "RMSE_ens": 3052.8154409079,
+      "MAE_ens": 2138.3990691349
+    },
+    {
+      "semilla": 14,
+      "RMSE_xgb": 3247.2319812572,
+      "RMSE_ens": 3037.3391282465,
+      "MAE_ens": 2148.8007832591
+    },
+    {
+      "semilla": 15,
+      "RMSE_xgb": 3236.3165181869,
+      "RMSE_ens": 3042.4372063229,
+      "MAE_ens": 2145.4477580656
+    },
+    {
+      "semilla": 16,
+      "RMSE_xgb": 3312.2512892482,
+      "RMSE_ens": 3076.0287043415,
+      "MAE_ens": 2170.1021911265
+    }
+  ]
+}

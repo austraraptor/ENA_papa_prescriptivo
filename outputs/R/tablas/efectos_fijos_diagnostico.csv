@@ -1,0 +1,5 @@
+prueba,p_valor,valor
+Heterocedasticidad (Breusch-Pagan),1.1913668256771563e-34,NA
+Normalidad de residuos (Shapiro-Wilk),3.560093040423319e-9,NA
+Autocorrelación (Durbin-Watson),0.018000000000000016,NA
+VIF máximo de covariables,NA,2.4588271099291203

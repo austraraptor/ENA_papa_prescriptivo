@@ -1,0 +1,422 @@
+\documentclass[letterpaper]{report}
+\usepackage[T1]{fontenc}
+\usepackage{RJournal}
+\usepackage{amsmath,amssymb,array,booktabs}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{graphicx}
+\usepackage{fancyvrb}
+\graphicspath{{../../outputs/R/figuras/}{../../outputs/julia/figuras/}}
+\renewcommand{\abstract}[1]{\setstretch{1}\noindent\small\textbf{Resumen.} #1}
+\providecommand{\keywords}[1]{\par\smallskip\noindent\small\textbf{Palabras clave:} #1\par}
+\hypersetup{pdfauthor={Rodrigo Claudio Rosas Tuni}}
+\begin{document}
+\sectionhead{Analítica prescriptiva con Julia}
+\year{2026}
+\begin{article}
+\title{Analítica prescriptiva del rendimiento de papa en el Perú con Julia: pronóstico con historial reducido y optimización con JuMP (ENA 2015--2025)}
+\author{Rodrigo Claudio Rosas Tuni}
+\maketitle
+\abstract{La Encuesta Nacional Agropecuaria (ENA) deja solo diez años útiles para la papa (2015--2025, sin 2020). Este trabajo lleva el pronóstico con historial reducido de un artículo previo a una pregunta de decisión: con S/ 50 millones por campaña, ¿en qué departamentos y en qué palancas conviene invertir? El pipeline, escrito en Julia con \pkg{DataFrames.jl}, \pkg{XGBoost.jl}, \pkg{JuMP} con el solucionador \pkg{HiGHS}, \pkg{Plots.jl} y la biblioteca estándar \pkg{Test}, tiene seis ramas y 63 validaciones automáticas. Primero reconstruye el panel departamental desde los microdatos y reproduce el artículo: el ensamble informado logra un RMSE de 3\,047.04 kg/ha frente a 3\,361.84 del modelo ingenuo, y la calibración conformal lleva la cobertura del 80\,\% nominal de 51.6\,\% a 81.1\,\%. Después estima el efecto de cada palanca con efectos fijos y resuelve un programa lineal con restricciones de presupuesto, topes y equidad para los 6 departamentos con heladas frecuentes. El plan robusto, que usa la cota inferior de los efectos, destina 65\,\% del presupuesto a los departamentos priorizados, sobre todo en semilla certificada, y produce un valor adicional de S/ 131.7 millones con una probabilidad de no recuperar la inversión de 0.59\,\%.}
+\keywords{analítica prescriptiva - programación lineal - calibración conformal - papa - Julia}
+
+\section{1. Introducción y reto}
+En un trabajo previo del grupo \citep{articulo} se pronosticó el rendimiento de papa de la ENA \citep{inei} con el marco de \citet{huang} para historial reducido: covariables de dominio, validación rolling-origin y calibración conformal. Ese trabajo responde a la pregunta \emph{qué va a pasar}. Para una institución pública la pregunta útil es otra: \emph{qué hacer con un presupuesto limitado}. Esa es la tarea de la analítica prescriptiva.
+
+\textbf{Reto.} Con S/ 50 millones por campaña, decidir cuánto subir cuatro palancas (riego tecnificado, semilla certificada, asistencia técnica y crédito) en 19 departamentos para obtener el mayor valor de producción adicional, sin concentrar el gasto y sin dejar de lado a los departamentos con heladas frecuentes. El pipeline debe ser reproducible, validarse a sí mismo y comunicar la decisión a quien no programa.
+
+El trabajo se preparó para LatinR. Este informe documenta la versión en Julia; un informe gemelo hace lo mismo en R y la rama 6 compara ambos resultados cifra por cifra.
+
+\section{2. Rama 0: ruta del pipeline}
+Todas las rutas se definen una sola vez en el archivo de configuración y se construyen desde la raíz del proyecto, de modo que el código funciona en cualquier computadora. Los insumos son tres archivos: \code{ENA\_cultivo\_filas.csv} (139\,466 filas de papa cosechada), \code{ENA\_productores.csv} (384\,525 productores) y \code{series\_ENA\_papa.xlsx} (series agregadas). Cada uno tiene una huella SHA-256 registrada: si un archivo cambia, el pipeline se detiene en la primera línea. El Cuadro~\ref{tab:ramas} resume las seis ramas.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Ramas del pipeline y producto de cada una.}\label{tab:ramas}
+\begin{tabular}{p{0.9cm}p{4.2cm}p{9.8cm}}
+\toprule
+Rama & Archivo & Qué hace \\
+\midrule
+0 & \code{00\_config.jl} & Rutas de datos, huellas SHA-256 y todos los parámetros (modelo y supuestos). \\
+1 & \code{01\_librerias.jl} & Carga las librerías y registra versiones. \\
+2 & \code{02\_datos\_validacion.jl} & Reconstruye el panel desde los microdatos y lo contrasta con el Excel. \\
+3 & \code{03\_descriptivo.jl} & Descriptivos, correlaciones y efectos fijos con errores agrupados y diagnósticos. \\
+4 & \code{04\_predictivo.jl} & Réplica del artículo: walk-forward, conformal, heladas, SHAP exacto. \\
+5 & \code{05\_prescriptivo.jl} & Alerta 2026, efectos de palancas, programa lineal (\pkg{JuMP}+\pkg{HiGHS}), Montecarlo. \\
+6 & \code{06\_comunicacion\_pruebas.jl} & Pruebas \pkg{Test}, comparación con R y ficha de decisión en HTML. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{Verbatim}[fontsize=\scriptsize, frame=single, framesep=2mm, label={\small Estructura de carpetas}]
+ENA_papa_prescriptivo/
+  data/raw/          insumos (solo lectura)
+  data/referencia/   métricas y pronósticos del artículo (Python)
+  R/                 ramas 00-06, funciones, app/ (Shiny) y tests/
+  julia/             ramas 00-06, funciones y test/
+  outputs/R | julia/ tablas/, figuras/, logs y resumen JSON
+  informes/          fuentes LaTeX de este informe
+\end{Verbatim}
+\section{3. Rama 1: librerías}
+Julia no tiene un equivalente directo de \pkg{tidyverse} ni de \pkg{easystats}; sus funciones se cubren con \pkg{DataFrames.jl} y con diagnósticos escritos a mano y verificados contra R. Para la optimización se usa \pkg{JuMP} \citep{jump} con \pkg{HiGHS} \citep{highs}. Como aplicaciones de referencia para un tablero en Julia existen \pkg{Genie.jl} y los cuadernos reactivos \pkg{Pluto.jl}; aquí se optó por una ficha HTML autocontenida. El análisis corrió en Julia 1.13.4.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Librerías de Julia usadas y su equivalente en R.}\label{tab:libs}
+\begin{tabular}{p{3.2cm}p{1.4cm}p{6.6cm}p{3.6cm}}
+\toprule
+Librería & Versión & Uso & Equivalente en R \\
+\midrule
+\pkg{CSV.jl, DataFrames.jl} & 1.8.3 & Lectura y agregación ponderada con \code{groupby}/\code{combine}. & \pkg{readr}, \pkg{dplyr} \\
+\pkg{XLSX.jl} & 0.13.4 & Lectura de \code{series\_ENA\_papa.xlsx}. & \pkg{readxl} \\
+\pkg{LinearAlgebra, GLM} & 1.9.5 & MCO con efectos fijos, Ridge en forma cerrada, errores CR1. & \pkg{stats}, \pkg{sandwich} \\
+\pkg{XGBoost.jl} & 2.5.5 & Árbol restringido; SHAP exacto llamando a \code{libxgboost} (tipo 2). & \pkg{xgboost} \\
+\pkg{JuMP + HiGHS} & 1.32.1 & Modelado y solución del programa lineal; precios sombra. & \pkg{lpSolve} \\
+\pkg{Distributions, HypothesisTests} & -- & Normal multivariada (Montecarlo) y Shapiro--Wilk. & \pkg{stats} \\
+\pkg{Plots.jl (GR)} & 1.41.8 & Figuras. & \pkg{ggplot2} \\
+\pkg{Test, SHA} & -- & Pruebas unitarias y huellas SHA-256. & \pkg{testthat}, \pkg{digest} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\section{4. Rama 2: datos y validación}
+Antes de modelar se rehízo el panel departamental desde los microdatos: el rendimiento es $\sum f_k\,\mathrm{kg}_k/\sum f_k\,\mathrm{ha}_k$ con el factor de expansión $f_k$, y cada covariable es un porcentaje ponderado entre quienes respondieron. En la ENA 2025 el módulo de pérdidas solo lista a quienes perdieron, así que el resto se cuenta como sin pérdida. Las 196 celdas año-departamento coinciden con el Excel en las 14 variables (diferencia máxima 2.6e-10). Hay 142 filas válidas sin ubigeo (2024--2025): entran a la serie nacional, pero no a ningún departamento.
+
+El panel de análisis tiene 19 departamentos con los 10 años (Loreto y San Martín quedan fuera por tener solo tres). El crédito de 2021 no se preguntó; se arrastra el valor de 2019 del mismo departamento, que es información pasada. Cada regla anterior es una validación que detiene el pipeline si falla:
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=single, framesep=2mm, label={\small Función de validación (se usa en todas las ramas)}]
+function chequear(rama, prueba, condicion, detalle = "")
+    ok = condicion === true
+    push!(VALIDACIONES, (rama, prueba, ok, string(detalle)))
+    ok || error("[VALIDACIÓN FALLIDA] $rama - $prueba $detalle")
+    return ok
+end
+\end{Verbatim}
+\section{5. Rama 3: descriptivo y diagnóstico}
+Las medias por departamento reproducen el Cuadro~1 del artículo al centésimo: la costa (Lima, Ica, Arequipa) supera los 20\,000 kg/ha y Puno y Lambayeque no llegan a 6\,100 (Figura~\ref{fig:evol}). Las correlaciones con el rendimiento también coinciden: crédito (0.55), semilla certificada (0.49), riego (0.45) y asistencia técnica (0.41). Son correlaciones entre departamentos; para decidir hace falta saber qué pasa \emph{dentro} de un mismo departamento cuando una palanca sube.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{j01_evolucion.png}
+\caption{Rendimiento nacional y de cuatro departamentos, 2015--2025.}\label{fig:evol}
+\end{figure}
+Por eso la prescripción se apoya en un modelo con efectos fijos por departamento y por año (Cuadro~\ref{tab:ef}). Los efectos fijos absorben lo que no cambia en cada departamento (altitud, suelos, costa o sierra) y los choques comunes de cada año. El diagnóstico muestra heterocedasticidad fuerte (Breusch--Pagan, $p = 1.2e-34$) y residuos no normales (Shapiro--Wilk, $p = 4.6e-09$); el VIF máximo es 2.46, sin colinealidad preocupante. Esto justifica los errores agrupados por departamento y, más adelante, los intervalos conformales.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Modelo explicativo con efectos fijos por departamento y año (190 obs.). Errores estándar agrupados por departamento (CR1).}\label{tab:ef}
+\begin{tabular}{lrrrr}
+\toprule
+Covariable (pp) & $\hat\beta$ (kg/ha) & EE agrupado & $t$ & $p$ \\
+\midrule
+Riego (\% área) & 4.1 & 29.0 & 0.14 & 0.889 \\
+Semilla certificada (\% área) & 70.5 & 18.0 & 3.91 & 0.000 \\
+Fertilizante & 16.7 & 28.6 & 0.58 & 0.561 \\
+Abono & 62.8 & 23.7 & 2.65 & 0.009 \\
+Asistencia técnica & 101.0 & 65.8 & 1.54 & 0.127 \\
+Capacitación & -41.7 & 34.5 & -1.21 & 0.229 \\
+Asociatividad & -10.7 & 59.7 & -0.18 & 0.858 \\
+Crédito & 43.7 & 52.5 & 0.83 & 0.406 \\
+Pérdida por helada & -24.3 & 42.7 & -0.57 & 0.570 \\
+Pérdida por sequía & 216.1 & 104.1 & 2.08 & 0.039 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Dentro de cada departamento, un punto porcentual más de área con semilla certificada se asocia con 70.5 kg/ha más ($p = 0.0001$). La asistencia técnica tiene un coeficiente mayor (101.0) pero impreciso ($p = 0.13$). El riego, muy correlacionado entre departamentos, casi no se mueve dentro de ellos (4.1 kg/ha, $p = 0.89$): en diez años un departamento cambia poco su superficie regada.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{j04_diagnostico_ef.png}
+\caption{Diagnóstico del modelo de efectos fijos: residuos frente a ajustados y Q-Q normal.}\label{fig:diag}
+\end{figure}
+\section{6. Rama 4: analítica predictiva (réplica del artículo)}
+La rama 4 repite la validación walk-forward del artículo: en cada año de prueba (2021--2025) se entrena con los años anteriores y se pronostica un año adelante para los 19 departamentos, lo que da 95 pronósticos fuera de muestra. Se comparan seis modelos con los hiperparámetros fijados en el artículo. El Ridge se resolvió en forma cerrada y el ElasticNet por descenso de coordenadas con la función objetivo de scikit-learn; su solución se verificó con las condiciones de optimalidad KKT. 
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Desempeño fuera de muestra (95 pronósticos, 2021--2025) en Julia, frente al artículo de referencia. La última columna es la mayor diferencia absoluta (kg/ha) entre cada pronóstico y el de Python.}\label{tab:modelos}
+\begin{tabular}{lrrrrrr}
+\toprule
+Modelo & MAE & RMSE & MAPE & MAE art. & RMSE art. & Dif. máx. \\
+\midrule
+Naive Lag1 & 2\,044.97 & 3\,361.84 & 17.43\,\% & 2\,044.97 & 3\,361.84 & 0.0e+0 \\
+Panel FE-ARDL & 2\,601.96 & 3\,829.68 & 23.95\,\% & 2\,601.96 & 3\,829.68 & 1.7e-9 \\
+Ridge & 2\,240.12 & 3\,346.52 & 22.11\,\% & 2\,240.12 & 3\,346.52 & 1.0e-11 \\
+ElasticNet & 3\,694.59 & 5\,007.97 & 44.74\,\% & 3\,694.59 & 5\,007.97 & 3.0e-5 \\
+XGBoost (prof. 2) & 2\,276.01 & 3\,249.74 & 23.67\,\% & 2\,349.36 & 3\,300.15 & 2.4e+3 \\
+Ensamble informado & 2\,146.11 & 3\,047.04 & 20.09\,\% & 2\,194.22 & 3\,092.66 & 1.2e+3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Los cuatro modelos deterministas coinciden con Python hasta 2e-09 kg/ha (ElasticNet: 3.0e-05, por la tolerancia de scikit-learn). El XGBoost es el único modelo que cambia: \pkg{XGBoost.jl} usa \texttt{libxgboost} 2.1, cuya secuencia aleatoria para el submuestreo de filas y columnas no es la de Python ni la de R. Con la semilla 7 el ensamble obtiene un RMSE de 3\,047.04 kg/ha, 1.5\,\% por debajo del artículo. Esta diferencia sirve como prueba de robustez: la conclusión no depende de una implementación concreta.
+
+El ensamble reduce el RMSE en 9.4\,\% frente al ingenuo, pero no el MAE (2\,146.11 frente a 2\,044.97): comete menos errores grandes, aunque en los casos típicos el valor del año anterior sigue siendo difícil de superar. Al repetir el XGBoost con 10 semillas, el RMSE del ensamble queda entre 3\,017.63 y 3\,112.13 kg/ha y supera al ingenuo en 10 de 10 casos (Figura~\ref{fig:rvp}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.55\textwidth]{j05_real_vs_pred.png}
+\caption{Rendimiento real frente al pronosticado en los 95 casos de prueba.}\label{fig:rvp}
+\end{figure}
+La incertidumbre se calibra con split-conformal \citep{conformal}: el último año de cada ventana de entrenamiento se pronostica con los años previos y el cuantil $\lceil (n+1)(1-\alpha)\rceil/n$ de esos errores ($n=19$) da el ancho del intervalo.
+
+\begin{Verbatim}[fontsize=\scriptsize, frame=single, framesep=2mm, label={\small Cuantil split-conformal}]
+cuantil_conformal(res, nivel) = (r = sort(res); n = length(r); r[min(ceil(Int, (n + 1) * nivel), n)])
+\end{Verbatim}
+\begin{table}[htbp]
+\centering
+\small
+\caption{Intervalos de predicción del ensamble antes y después de la calibración split-conformal.}\label{tab:conf}
+\begin{tabular}{lrrrrr}
+\toprule
+Nominal & Método & Cobertura & Error (pp) & Ancho medio & Winkler \\
+\midrule
+80 \% & Gaussiano (sin calibrar) & 51.6\,\% & -28.4 & 3\,290.5 & 13\,532.8 \\
+80 \% & Split-conformal & 81.1\,\% & +1.1 & 6\,883.8 & 11\,296.8 \\
+90 \% & Gaussiano (sin calibrar) & 60.0\,\% & -30.0 & 4\,223.3 & 20\,774.1 \\
+90 \% & Split-conformal & 91.6\,\% & +1.6 & 10\,984.0 & 14\,705.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Los intervalos gaussianos quedan muy cortos (51.6\,\% de cobertura al 80\,\% nominal); con calibración conformal la cobertura sube a 81.1\,\% y 91.6\,\% al 90\,\%, a cambio de intervalos más anchos (Figura~\ref{fig:conf}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{j06_conformal.png}
+\caption{Bandas al 80\,\%: gaussiana (izquierda) y split-conformal (derecha).}\label{fig:conf}
+\end{figure}
+En los 33 casos con heladas en al menos 5\,\% de productores, el ensamble baja el MAE de 1\,880.04 a 1\,662.46 kg/ha y el RMSE de 2\,827.45 a 2\,285.73. El rendimiento del año previo domina la importancia SHAP \citep{shap} (2\,774 kg/ha de contribución media), seguido de crédito, riego, capacitación, fertilizante. Los residuos del ensamble tienen media -93 kg/ha y colas pesadas (Shapiro--Wilk $p = 0.001$), lo que respalda el uso de intervalos conformales (Figuras~\ref{fig:estab} y~\ref{fig:resh}).
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Sensibilidad del ensamble informado (kg/ha).}\label{tab:sens}
+\begin{tabular}{lrrr}
+\toprule
+Escenario & MAE & RMSE & MAPE \\
+\midrule
+Base: ventana expansiva, 10 covariables, profundidad 2 & 2\,146.11 & 3\,047.04 & 20.09\,\% \\
+Ventana móvil de 4 años & 2\,184.16 & 3\,211.26 & 20.36\,\% \\
+Ventana móvil de 3 años & 2\,126.80 & 2\,980.38 & 20.09\,\% \\
+XGBoost con profundidad 3 & 2\,130.10 & 3\,090.00 & 19.87\,\% \\
+Sin covariables de pérdidas climáticas & 1\,956.69 & 2\,868.12 & 18.57\,\% \\
+Solo riego, semilla y fertilizante & 2\,038.12 & 2\,992.26 & 20.43\,\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{j07_estabilidad_shap.png}
+\caption{RMSE por año de prueba e importancia SHAP del XGBoost.}\label{fig:estab}
+\end{figure}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{j08_residuos_heladas.png}
+\caption{Residuos del ensamble y error según la incidencia de heladas.}\label{fig:resh}
+\end{figure}
+\section{7. Rama 5: analítica prescriptiva}
+\subsection{7.1 Alerta temprana 2026 y departamentos priorizados}
+El ensamble, entrenado con todos los años, pronostica 2026 suponiendo que las covariables se mantienen como en 2025, con un intervalo conformal al 80\,\% calibrado en 2025. Un departamento es \emph{priorizado} si tuvo heladas con pérdida total en al menos 5\,\% de productores en promedio entre 2021 y 2025 y, además, su pronóstico 2026 está por debajo de su media histórica o su rendimiento medio está bajo el promedio nacional. Resultan 6: Puno, Cusco, La Libertad, Huancavelica, Pasco, Apurímac (Figura~\ref{fig:ale}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.75\textwidth]{j09_alerta_2026.png}
+\caption{Pronóstico 2026 con intervalo conformal al 80\,\%. La marca vertical es la media 2015--2025.}\label{fig:ale}
+\end{figure}
+\subsection{7.2 Formulación}
+Sea $x_{ik}$ el aumento, en puntos porcentuales, de la palanca $k$ en el departamento $i$. El programa lineal es
+\begin{align*}
+\max_{x}\; & \textstyle\sum_{i,k} \beta_k\, S_i\, p_i\, x_{ik} \\
+\text{s.a.}\; & \textstyle\sum_{i,k} c_{ik}\, x_{ik} \le B, \qquad \sum_{k} c_{ik}\, x_{ik} \le 0.25\,B \;\; \forall i, \qquad \sum_{i \in P}\sum_k c_{ik}\, x_{ik} \ge 0.30\,B, \\
+& 0 \le x_{ik} \le \min(\bar{x}_k,\, 100 - L_{ik}),
+\end{align*}
+donde $S_i$ es la superficie cosechada 2025 (ha), $p_i$ el precio de venta (S/ por kg), $L_{ik}$ el nivel actual de la palanca, $\bar{x}_k$ su tope por campaña, $P$ el conjunto priorizado y $c_{ik}$ el costo de subir un punto ($c_k S_i/100$ para palancas por área y $c_k N_i/100$ para palancas por productor, con $N_i$ productores). Se resuelven dos versiones: con $\beta$ puntual y con $\beta$ robusto, la cota inferior al 80\,\%. Los costos unitarios son supuestos razonables que el tablero permite cambiar (Cuadro~\ref{tab:palancas}).
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Palancas de decisión: efecto por punto porcentual (kg/ha), efecto robusto $\max(0,\hat\beta-1.28\,\mathrm{EE})$, costo unitario por campaña y aumento máximo.}\label{tab:palancas}
+\begin{tabular}{lrrrrr}
+\toprule
+Palanca & $\beta$ puntual & EE & $\beta$ robusto & Costo (S/, supuesto) & Tope (pp) \\
+\midrule
+Riego tecnificado & 4.1 & 29.0 & 0.0 & 1\,500 por ha & 10 \\
+Semilla certificada & 70.5 & 18.0 & 47.4 & 3\,000 por ha & 10 \\
+Asistencia técnica & 101.0 & 65.8 & 16.7 & 600 por productor & 15 \\
+Crédito agrario & 43.7 & 52.5 & 0.0 & 500 por productor & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{Verbatim}[fontsize=\scriptsize, frame=single, framesep=2mm, label={\small Programa lineal con JuMP + HiGHS}]
+function optimizar_plan(ins, palancas, efectos, presupuesto; cuota = CUOTA_EQUIDAD, tope_depto = TOPE_DEPTO,
+                        tipo = "puntual")
+    pr = armar_problema(ins, palancas, efectos; tipo)
+    nrow(pr) > 0 || error("Ninguna palanca tiene efecto positivo")
+    n = nrow(pr)
+    cap_prior = sum(pr.c[pr.prioritario] .* pr.ub[pr.prioritario])
+    rhs_eq = min(cuota * presupuesto, cap_prior)
+    m = Model(HiGHS.Optimizer); set_silent(m)
+    @variable(m, 0 <= x[j = 1:n] <= pr.ub[j])
+    @objective(m, Max, sum(pr.v[j] * x[j] for j in 1:n))
+    @constraint(m, presup, sum(pr.c[j] * x[j] for j in 1:n) <= presupuesto)
+    for d in unique(pr.DEPARTAMENTO)
+        @constraint(m, sum(pr.c[j] * x[j] for j in 1:n if pr.DEPARTAMENTO[j] == d) <= tope_depto * presupuesto)
+    end
+    @constraint(m, sum(pr.c[j] * x[j] for j in 1:n if pr.prioritario[j]) >= rhs_eq)
+    optimize!(m)
+    termination_status(m) == MOI.OPTIMAL || error("Programa lineal sin óptimo: $(termination_status(m))")
+    pr.x = value.(x)
+    pr.costo = pr.c .* pr.x; pr.kg_adic = pr.kg .* pr.x; pr.valor = pr.v .* pr.x
+    (plan = pr, objetivo = objective_value(m), gasto = sum(pr.costo), precio_sombra = shadow_price(presup),
+     cuota_efectiva = rhs_eq / presupuesto, cap_prior = cap_prior)
+end
+\end{Verbatim}
+\subsection{7.3 Resultados}
+El plan puntual concentra el gasto en asistencia técnica y crédito y promete S/ 509.8 millones de valor adicional (beneficio/costo 10.2). Esa cifra descansa en coeficientes imprecisos. El plan robusto descarta las palancas cuyo efecto no se distingue de cero (riego y crédito) y pone S/ 41.5 millones en semilla certificada y S/ 8.5 millones en asistencia técnica (Cuadro~\ref{tab:plan}, Figura~\ref{fig:plan}). Rinde S/ 131.7 millones (83\,255 t adicionales) aun con efectos conservadores, y el 65\,\% del presupuesto va a departamentos priorizados.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{Plan robusto recomendado para un presupuesto de S/ 50 millones por campaña.}\label{tab:plan}
+\begin{tabular}{llrrrc}
+\toprule
+Departamento & Palanca(s) & S/ M & t adicionales & Valor S/ M & Prior. \\
+\midrule
+Cusco & Semilla certificada & 10.22 & 16\,136 & 24.01 & sí \\
+La Libertad & Asistencia técnica, Semilla certificada & 9.33 & 14\,874 & 24.17 & sí \\
+Puno & Semilla certificada & 8.00 & 12\,634 & 26.42 & sí \\
+Cajamarca & Semilla certificada & 7.74 & 12\,214 & 18.37 &  \\
+Huancavelica & Semilla certificada & 5.02 & 7\,931 & 11.40 & sí \\
+Ayacucho & Asistencia técnica & 3.83 & 7\,732 & 9.28 &  \\
+Lima & Asistencia técnica, Semilla certificada & 3.34 & 6\,142 & 10.19 &  \\
+Áncash & Semilla certificada & 0.82 & 1\,289 & 1.79 &  \\
+Moquegua & Semilla certificada & 0.67 & 1\,056 & 1.96 &  \\
+Amazonas & Asistencia técnica & 0.54 & 1\,250 & 1.65 &  \\
+Tacna & Semilla certificada & 0.36 & 566 & 1.16 &  \\
+Ica & Asistencia técnica & 0.14 & 1\,432 & 1.34 &  \\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{j10_plan_optimo.png}
+\caption{Asignación óptima de S/ 50 millones con efectos puntuales (izquierda) y robustos (derecha).}\label{fig:plan}
+\end{figure}
+El Cuadro~\ref{tab:mc} evalúa ambos planes cuando el efecto verdadero varía según su incertidumbre. El plan puntual tiene mayor valor esperado, pero su peor 5\,\% cae a S/ 83.4 millones y la probabilidad de no recuperar la inversión es 3.81\,\%. El plan robusto tiene un peor 5\,\% más alto (S/ 138.8 millones) y esa probabilidad baja a 0.59\,\%. Para una entidad pública que debe rendir cuentas, el plan robusto es la recomendación.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Valor de cada plan (millones de S/) cuando el efecto verdadero varía según la incertidumbre estimada (normal multivariada con la covarianza agrupada). Las columnas exactas usan la normalidad del valor; la última viene de 20\,000 simulaciones.}\label{tab:mc}
+\begin{tabular}{lrrrrr}
+\toprule
+Plan & Valor esperado & P05 & P95 & P(B/C $<$ 1) & P05 Montecarlo \\
+\midrule
+Plan puntual & 509.8 & 83.4 & 936.2 & 3.81\,\% & 78.8 \\
+Plan robusto & 306.3 & 138.8 & 473.8 & 0.59\,\% & 137.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+La frontera de la Figura~\ref{fig:front} muestra cuánto presupuesto vale la pena. Con S/ 50 millones, un sol adicional rinde S/ 2.20 en el plan robusto (precio sombra). Con efectos robustos, cada sol extra sigue rindiendo más de un sol hasta S/ 130 millones; por encima de esa cifra conviene buscar otras palancas. La capacidad total del plan robusto se agota en S/ 172.6 millones. La cuota de equidad del 30\,\% cuesta S/ 0.31 millones en el plan puntual y una cuota del 50\,\% costaría S/ 7.9 millones: proteger a los departamentos con heladas sale barato. Si los costos unitarios fueran 50\,\% menores o mayores, el beneficio/costo del plan puntual iría de 8.0 a 15.4; la recomendación no cambia de signo.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{j11_frontera_montecarlo.png}
+\caption{Frontera presupuesto--valor y distribución del beneficio/costo de cada plan.}\label{fig:front}
+\end{figure}
+\section{8. Rama 6: comunicación y pruebas}
+La rama 6 ejecuta las pruebas unitarias (stdlib \pkg{Test}), compara cada resultado con el pipeline de R y genera una ficha de decisión en HTML (\code{outputs/julia/ficha\_decision.html}) con los indicadores del plan robusto, la tabla por departamento y la figura de asignación, lista para enviar a una autoridad. El Cuadro~\ref{tab:cmp} resume la comparación R--Julia.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Comparación de resultados entre R y Julia (kg/ha, \% o millones de S/). Los modelos deterministas y el programa lineal coinciden; las diferencias vienen del XGBoost y de la semilla del Montecarlo.}\label{tab:cmp}
+\begin{tabular}{lrrr}
+\toprule
+Indicador & R & Julia & Dif. (\%) \\
+\midrule
+RMSE Naive Lag1 & 3\,361.84 & 3\,361.84 & +0.00 \\
+RMSE Panel FE-ARDL & 3\,829.68 & 3\,829.68 & +0.00 \\
+RMSE Ridge & 3\,346.52 & 3\,346.52 & +0.00 \\
+RMSE ElasticNet & 5\,007.97 & 5\,007.97 & +0.00 \\
+RMSE XGBoost (prof. 2) & 3\,300.15 & 3\,249.74 & -1.53 \\
+RMSE Ensamble informado & 3\,092.66 & 3\,047.04 & -1.48 \\
+Cobertura 80 \% Gaussiano (sin calibrar) & 50.53 & 51.58 & +2.08 \\
+Cobertura 80 \% Split-conformal & 81.05 & 81.05 & +0.00 \\
+Cobertura 90 \% Gaussiano (sin calibrar) & 58.95 & 60.00 & +1.79 \\
+Cobertura 90 \% Split-conformal & 92.63 & 91.58 & -1.14 \\
+Valor plan puntual (S/ M) & 509.77 & 509.77 & -0.00 \\
+Valor plan robusto (S/ M) & 131.75 & 131.75 & +0.00 \\
+P05 exacto del valor, Plan puntual & 83.35 & 83.35 & -0.00 \\
+P05 Montecarlo, Plan puntual & 78.97 & 78.82 & -0.19 \\
+P05 exacto del valor, Plan robusto & 138.79 & 138.79 & +0.00 \\
+P05 Montecarlo, Plan robusto & 137.62 & 137.56 & -0.04 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\section{9. Resumen de validaciones}
+El pipeline en Julia ejecutó 63 validaciones y todas fueron aprobadas (Cuadro~\ref{tab:val}). El registro completo está en el archivo \code{registro\_validaciones.csv} de la carpeta de tablas.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Validaciones automáticas del pipeline en Julia (el pipeline se detiene si alguna falla).}\label{tab:val}
+\begin{tabular}{lrr}
+\toprule
+Rama & Validaciones & Aprobadas \\
+\midrule
+Datos & 21 & 21 \\
+Descriptivo & 5 & 5 \\
+Predictivo & 15 & 15 \\
+Prescriptivo & 21 & 21 \\
+Comunicación & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\section{10. Conclusiones}
+\begin{enumerate}
+\item El panel se reconstruyó desde los microdatos sin diferencias con el Excel, y los cuatro modelos deterministas del artículo se reprodujeron en Julia; el XGBoost difiere por la implementación, pero no cambia las conclusiones.
+\item El ensamble informado tiene el menor RMSE (3\,047.04 kg/ha) y la calibración conformal es indispensable: sin ella los intervalos cubren la mitad de lo que prometen.
+\item Con S/ 50 millones, el plan robusto invierte sobre todo en semilla certificada en Cusco, Puno, Cajamarca, Huancavelica y La Libertad, y en asistencia técnica donde hay más superficie por productor. Produce 83\,255 t adicionales y un beneficio/costo de 2.63 con efectos conservadores.
+\item Hasta S/ 130 millones cada sol adicional rinde más de un sol; la cuota de equidad para los departamentos con heladas cuesta menos del 1\,\% del valor.
+\end{enumerate}
+
+\textbf{Limitaciones.} Los efectos vienen de un panel observacional de diez años: son asociaciones dentro de cada departamento, no efectos causales, y suponen que se mantienen al escalar la intervención. Los costos unitarios son supuestos; el tablero y el análisis de sensibilidad muestran cómo cambia el plan si se ajustan. El pronóstico 2026 supone covariables iguales a 2025 y no incluye clima directo (temperatura o precipitación).
+
+\section{Anexo: cómo ejecutar}
+\begin{Verbatim}[fontsize=\scriptsize, frame=single, framesep=2mm, label={\small Comandos}]
+# primera vez: instalar dependencias del proyecto
+julia --project=julia -e 'using Pkg; Pkg.instantiate()'
+# pipeline completo (correr antes R/run_all.R para la comparación)
+cd julia && julia --project=. run_all.jl
+# solo pruebas
+julia --project=julia julia/test/runtests.jl
+\end{Verbatim}
+
+\begin{thebibliography}{99}
+
+\bibitem[Bezanson et~al.(2017)]{julia} Bezanson, J., Edelman, A., Karpinski, S. y Shah, V. B. (2017). Julia: A fresh approach to numerical computing. \emph{SIAM Review}, 59(1), 65--98.
+
+\bibitem[Callohuanca et~al.(2026)]{articulo} Callohuanca Condori, D. L., Mamani Huatta, C. D., Gomez Cahuana, J. R., Mamani Emanuel, E. W. y Rosas Tuni, R. C. (2026). \emph{Pronóstico del rendimiento de papa en el Perú con historial reducido}. Ciencia de Datos I, FINESI-UNA Puno.
+
+\bibitem[Chen y Guestrin(2016)]{xgboost} Chen, T. y Guestrin, C. (2016). XGBoost: A scalable tree boosting system. En \emph{Proceedings of KDD 2016}, 785--794.
+
+\bibitem[Dunning et~al.(2017)]{jump} Dunning, I., Huchette, J. y Lubin, M. (2017). JuMP: A modeling language for mathematical optimization. \emph{SIAM Review}, 59(2), 295--320.
+
+\bibitem[Huang et~al.(2027)]{huang} Huang, R., Luo, W., Jiang, Y. et~al. (2027). A domain-informed forecasting framework for short-horizon carbon emissions prediction in power plants under reduced-history conditions. \emph{Electric Power Systems Research}, 265, 114351.
+
+\bibitem[Huangfu y Hall(2018)]{highs} Huangfu, Q. y Hall, J. A. J. (2018). Parallelizing the dual revised simplex method. \emph{Mathematical Programming Computation}, 10(1), 119--142.
+
+\bibitem[INEI(2025)]{inei} INEI (2025). \emph{Encuesta Nacional Agropecuaria (ENA) 2014--2024 y 2025, microdatos}. Lima: Instituto Nacional de Estadística e Informática.
+
+\bibitem[Kuhn(2008)]{caret} Kuhn, M. (2008). Building predictive models in R using the caret package. \emph{Journal of Statistical Software}, 28(5), 1--26.
+
+\bibitem[Lüdecke et~al.(2022)]{easystats} Lüdecke, D., Ben-Shachar, M. S., Patil, I. y Makowski, D. (2022). easystats: Framework for easy statistical modeling, visualization, and reporting. CRAN.
+
+\bibitem[Lundberg y Lee(2017)]{shap} Lundberg, S. M. y Lee, S.-I. (2017). A unified approach to interpreting model predictions. En \emph{NeurIPS 30}, 4765--4774.
+
+\bibitem[Vovk et~al.(2005)]{conformal} Vovk, V., Gammerman, A. y Shafer, G. (2005). \emph{Algorithmic Learning in a Random World}. Springer.
+
+\bibitem[Wickham et~al.(2019)]{tidyverse} Wickham, H. et~al. (2019). Welcome to the tidyverse. \emph{Journal of Open Source Software}, 4(43), 1686.
+\end{thebibliography}
+
+\par\address{Rodrigo Claudio Rosas Tuni\\ Facultad de Ingeniería Estadística e Informática (FINESI)\\ Universidad Nacional del Altiplano, Puno, Perú}
+\end{article}
+\end{document}

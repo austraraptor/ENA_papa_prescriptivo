@@ -1,0 +1,16 @@
+Rama 2 OK: panel 190 filas; reconstrucción máx dif = 5.82e-11
+`height` was translated to `width`.
+For confidence bands, please install `qqplotr`.
+Rama 3 OK: R2 within-panel = 0.864
+Rama 4 OK: RMSE ensamble = 3092.66
+`height` was translated to `width`.
+Rama 5 OK: plan puntual S/ 509.8 M de valor; robusto S/ 131.7 M
+
+Attaching package: ‘testthat’
+
+The following objects are masked from ‘package:readr’:
+
+    edition_get, local_edition
+
+Rama 6 OK: 61 validaciones, todas aprobadas = TRUE
+PIPELINE R TERMINADO en 32 s - 61/61 validaciones aprobadas

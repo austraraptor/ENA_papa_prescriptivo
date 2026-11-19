@@ -1,0 +1,64 @@
+rama,prueba,ok,detalle
+Datos,Existe ENA_cultivo_filas.csv,true,""
+Datos,SHA-256 ENA_cultivo_filas.csv,true,7ad30d56d047
+Datos,Existe ENA_productores.csv,true,""
+Datos,SHA-256 ENA_productores.csv,true,57988a3ad07f
+Datos,Existe series_ENA_papa.xlsx,true,""
+Datos,SHA-256 series_ENA_papa.xlsx,true,37026ebabe7f
+Datos,Filas de cultivo = 139 466,true,139466
+Datos,Filas válidas = 129 915,true,129915
+Datos,Sin 2020 en microdatos,true,""
+Datos,"Rendimiento de filas válidas en [300, 80 000] kg/ha",true,""
+Datos,Factores de expansión positivos,true,""
+Datos,Filas válidas sin ubigeo: 142 (solo 2024-2025; cuentan en la serie nacional),true,142
+Datos,Mismo número de celdas año-departamento,true,196 de 196
+Datos,Panel reconstruido = Excel (dif. < 1e-6),true,máx = 2.62e-10
+Datos,Serie nacional reconstruida = Excel,true,""
+Datos,Panel balanceado 19 x 10 = 190,true,""
+Datos,Excluidos solo Loreto y San Martín,true,"Loreto, San Martín"
+Datos,Sin duplicados año-departamento,true,""
+Datos,"Covariables en [0, 100] %",true,""
+Datos,Crédito imputado solo en 2021,true,""
+Datos,y_lag de 2021 es el valor de 2019,true,""
+Descriptivo,Medias = Cuadro 1 del artículo (±0.01),true,""
+Descriptivo,Media nacional = 11 138.60,true,""
+Descriptivo,Correlaciones = artículo (±0.005),true,""
+Descriptivo,Modelo EF con 190 obs. y rango completo,true,""
+Descriptivo,Coeficientes y EE agrupados = R (dif. < 1e-6),true,dif máx EE 2.4e-12
+Predictivo,95 pronósticos fuera de muestra (19 x 5),true,""
+Predictivo,Sin pronósticos NaN,true,""
+Predictivo,Naive Lag1 = artículo (MAE y RMSE ±0.01),true,RMSE 3361.84 vs 3361.84
+Predictivo,Panel FE-ARDL = artículo (MAE y RMSE ±0.01),true,RMSE 3829.68 vs 3829.68
+Predictivo,Ridge = artículo (MAE y RMSE ±0.01),true,RMSE 3346.52 vs 3346.52
+Predictivo,ElasticNet = artículo (MAE y RMSE ±0.01),true,RMSE 5007.97 vs 5007.97
+Predictivo,Pronósticos deterministas = Python (dif. < 0.01 kg/ha),true,""
+Predictivo,ElasticNet = Python (dif. < 1 kg/ha; sklearn usa tol = 1e-4),true,""
+Predictivo,ElasticNet cumple KKT (|grad| < 1e-6),true,1.1e-11
+Predictivo,Modelos deterministas = R (dif. < 1e-6 kg/ha),true,máx 1.8e-11
+Predictivo,Ensamble con RMSE < ingenuo en la mayoría de semillas,true,10 de 10
+Predictivo,RMSE del ensamble a menos de 5 % del artículo (3 092.66),true,3047.04
+Predictivo,Conformal mejora la cobertura respecto al gaussiano,true,""
+Predictivo,Cobertura conformal a menos de 10 pp del nominal,true,""
+Predictivo,33 casos con heladas >= 5 % (igual que el artículo),true,""
+Prescriptivo,Pronóstico 2026 completo y positivo,true,""
+Prescriptivo,Hay departamentos priorizados,true,"Puno, Cusco, La Libertad, Huancavelica, Pasco, Apurímac"
+Prescriptivo,Matriz de covarianza de palancas definida positiva,true,""
+Prescriptivo,Insumos sin faltantes,true,""
+Prescriptivo,Plan puntual - respeta el presupuesto,true,""
+Prescriptivo,Plan puntual - respeta topes por palanca y 100 %,true,""
+Prescriptivo,Plan puntual - ningún departamento supera el 25 %,true,""
+Prescriptivo,Plan puntual - cuota de equidad cumplida,true,""
+Prescriptivo,Plan puntual - objetivo = suma de valores,true,""
+Prescriptivo,Plan puntual - supera al reparto proporcional,true,""
+Prescriptivo,Plan robusto - respeta el presupuesto,true,""
+Prescriptivo,Plan robusto - respeta topes por palanca y 100 %,true,""
+Prescriptivo,Plan robusto - ningún departamento supera el 25 %,true,""
+Prescriptivo,Plan robusto - cuota de equidad cumplida,true,""
+Prescriptivo,Plan robusto - objetivo = suma de valores,true,""
+Prescriptivo,Plan robusto - supera al reparto proporcional,true,""
+Prescriptivo,Plan puntual: valor óptimo = R (lpSolve) con dif. relativa < 1e-6,true,R 509768420 vs Julia 509768420
+Prescriptivo,Plan robusto: valor óptimo = R (lpSolve) con dif. relativa < 1e-6,true,R 131748147 vs Julia 131748147
+Prescriptivo,"Montecarlo = distribución exacta (media a < 4 EE, P05 a < 0.1 DE)",true,""
+Prescriptivo,Media exacta = valor del plan puntual,true,""
+Prescriptivo,Frontera no decreciente en el presupuesto,true,""
+Comunicación,Pruebas unitarias Julia sin fallas,true,15 aprobadas

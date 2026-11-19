@@ -1,0 +1,5 @@
+var,nombre,base,costo,tope_pp
+pct_area_con_riego,Riego tecnificado,area,1500,10
+pct_area_semilla_cert,Semilla certificada,area,3000,10
+pct_asist,Asistencia técnica,productores,600,15
+pct_credito,Crédito agrario,productores,500,10
