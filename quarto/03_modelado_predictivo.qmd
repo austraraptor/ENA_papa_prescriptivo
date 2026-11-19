@@ -1,0 +1,121 @@
+---
+title: "3. Modelado Predictivo con Historial Reducido"
+subtitle: "Validación walk-forward temporal, ensamble informado, calibración conformal e interpretabilidad SHAP"
+format:
+  html:
+    toc: true
+---
+
+```{r}
+#| label: setup-predictivo
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(knitr)
+})
+
+tab_dir <- "../ENA_papa_prescriptivo/outputs/R/tablas"
+fig_dir <- "../ENA_papa_prescriptivo/outputs/R/figuras"
+```
+
+## 1. Esquema Metodológico de Validación Walk-Forward
+
+Bajo el marco de historial reducido de @huang2027domain, los modelos de aprendizaje automático no se evalúan mediante validación cruzada aleatoria tradicional (que violaría la estructura causal del tiempo introduciendo fuga de datos). En su lugar, se implementa una evaluación **walk-forward de origen expansivo** para las campañas 2021 a 2025:
+
+- Para predecir el año $t$, el modelo solo se entrena con la información disponible hasta el año $t-1$.
+- Se evalúan las predicciones estrictamente fuera de muestra en los 19 departamentos ($19 \times 5 = 95$ predicciones por modelo).
+
+---
+
+## 2. Comparativa de Modelos Predictivos
+
+Se evalúan seis arquitecturas predictivas que van desde modelos ingenuos (*Naive*) hasta ensambles informados por dominio:
+
+```{r}
+#| label: tbl-modelos-rmse
+#| echo: true
+ruta_c2 <- file.path(tab_dir, "cuadro2_modelos.csv")
+if (file.exists(ruta_c2)) {
+  c2 <- read_csv(ruta_c2, show_col_types = FALSE)
+  kable(c2, digits = 2, caption = "Métricas de error fuera de muestra (2021–2025) por modelo.")
+}
+```
+
+> **Hallazgo fundamental:** El **Ensamble informado** logra el menor error cuadrático medio (RMSE = $3\,092.66$ kg/ha), superando al modelo base Naive Lag1 ($3\,361.84$ kg/ha) y al XGBoost individual ($3\,300.15$ kg/ha).
+
+```{r}
+#| label: fig-real-pred
+#| echo: false
+#| fig-cap: "Comparación de rendimientos reales vs. predicciones fuera de muestra del ensamble informado."
+knitr::include_graphics(file.path(fig_dir, "r05_real_vs_pred.png"))
+```
+
+---
+
+## 3. Cuantificación de Incertidumbre: Calibración Conformal
+
+Bajo historial reducido, los intervalos de confianza teóricos gaussianos fallan severamente debido a la curtosis y asimetría de los choques climáticos. Para resolverlo, se aplica la metodología de **predicción conformal dividida (*Split-conformal*)** [@vovk2005algorithmic].
+
+```{r}
+#| label: tbl-conformal
+#| echo: true
+ruta_c5 <- file.path(tab_dir, "cuadro5_conformal.csv")
+if (file.exists(ruta_c5)) {
+  c5 <- read_csv(ruta_c5, show_col_types = FALSE)
+  kable(c5, digits = 2, caption = "Cobertura empírica y ancho de banda: Intervalos gaussianos vs. Split-conformal.")
+}
+```
+
+La calibración conformal eleva la cobertura empírica al nivel nominal deseado (de $50.52\,\%$ a $81.05\,\%$ para el nivel del $80\,\%$), reduciendo además el índice de Winkler (penalización por fallos de cobertura).
+
+```{r}
+#| label: fig-conformal
+#| echo: false
+#| fig-cap: "Intervalos de predicción calibrados conformalmente frente a datos observados."
+knitr::include_graphics(file.path(fig_dir, "r06_conformal.png"))
+```
+
+---
+
+## 4. Rendimiento por Régimen de Heladas
+
+El ensamble informado demuestra su mayor valor relativo precisamente en los departamentos con **alta incidencia de heladas** ($\ge 5\,\%$ de pérdidas): reduce el RMSE de $2\,827.45$ kg/ha (Naive) a **$2\,268.53$ kg/ha**, mejorando la precisión en casi $600$ kg/ha donde los agricultores enfrentan mayor vulnerabilidad climática.
+
+```{r}
+#| label: tbl-heladas
+#| echo: true
+ruta_c6 <- file.path(tab_dir, "cuadro6_heladas.csv")
+if (file.exists(ruta_c6)) {
+  c6 <- read_csv(ruta_c6, show_col_types = FALSE)
+  kable(c6, digits = 2, caption = "Desempeño predictivo desglosado por régimen de exposición a heladas.")
+}
+```
+
+```{r}
+#| label: fig-residuos-heladas
+#| echo: false
+#| fig-cap: "Distribución de residuos en función de la severidad de pérdidas por helada."
+knitr::include_graphics(file.path(fig_dir, "r08_residuos_heladas.png"))
+```
+
+---
+
+## 5. Interpretabilidad y Valores SHAP
+
+```{r}
+#| label: tbl-shap
+#| echo: true
+ruta_shap <- file.path(tab_dir, "shap_importancia.csv")
+if (file.exists(ruta_shap)) {
+  shap_df <- read_csv(ruta_shap, show_col_types = FALSE)
+  kable(shap_df, digits = 4, caption = "Importancia de variables explicativas mediante valores absolutos medios de SHAP.")
+}
+```
+
+```{r}
+#| label: fig-estabilidad-shap
+#| echo: false
+#| fig-cap: "Estabilidad de coeficientes e importancia relativa de covariables mediante SHAP."
+knitr::include_graphics(file.path(fig_dir, "r07_estabilidad_shap.png"))
+```

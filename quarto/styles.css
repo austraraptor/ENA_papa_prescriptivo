@@ -1,0 +1,115 @@
+/* Estilos tipográficos y visuales para el entorno reproducible Quarto */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace;
+  --color-primary: #1E3A8A;
+  --color-primary-hover: #1D4ED8;
+  --color-secondary: #0F766E;
+  --color-bg: #FFFFFF;
+  --color-surface: #F8FAFC;
+  --color-border: #E2E8F0;
+  --color-text: #0F172A;
+  --color-muted: #64748B;
+  --color-danger: #BE123C;
+  --color-success: #15803D;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 2.15rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: 1.55rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.4rem;
+  margin-top: 2rem;
+  margin-bottom: 0.8rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Números tabulares para alineación perfecta en tablas y métricas */
+table, .valuebox, .metric, .dataTables_wrapper {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tablas limpias con bordes finos */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+  font-size: 0.925rem;
+}
+
+th {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+tr:hover {
+  background-color: #F1F5F9;
+}
+
+/* Cajas de valor e indicadores */
+.kpi-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.kpi-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  text-transform: none;
+}
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0.25rem 0;
+}
+
+.kpi-sub {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
+/* Callouts limpios */
+.callout {
+  border-radius: 4px;
+  margin: 1.5rem 0;
+  border-left-width: 4px;
+}

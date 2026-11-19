@@ -1,0 +1,151 @@
+---
+title: "4. Analítica Prescriptiva y Asignación Óptima"
+subtitle: "Programación lineal con restricciones de equidad climática, plan robusto y simulación de riesgo Monte Carlo"
+format:
+  html:
+    toc: true
+---
+
+```{r}
+#| label: setup-prescriptivo
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(knitr)
+  library(DT)
+})
+
+tab_dir <- "../ENA_papa_prescriptivo/outputs/R/tablas"
+fig_dir <- "../ENA_papa_prescriptivo/outputs/R/figuras"
+```
+
+## 1. El Reto Prescriptivo: ¿Qué Hacer con S/ 50 Millones?
+
+El objetivo de la analítica prescriptiva es determinar la asignación óptima de un presupuesto público anual de **S/ 50 millones** entre 19 departamentos y cuatro palancas tecnológicas para maximizar el valor de la producción adicional de papa:
+
+$$\max_{x_{ik}} \sum_{i=1}^{19} \sum_{k=1}^4 v_{ik} x_{ik}$$
+
+sujeto a:
+
+1. **Restricción presupuestaria global:**
+   $$\sum_{i=1}^{19} \sum_{k=1}^4 c_{ik} x_{ik} \le B \quad (B = \text{S/ } 50\,000\,000)$$
+2. **Tope de diversificación departamental:** Ningún departamento puede concentrar más del $20\,\%$ del presupuesto total:
+   $$\sum_{k=1}^4 c_{ik} x_{ik} \le 0.20 \cdot B \quad \forall i$$
+3. **Cuota de equidad climática:** Al menos el $30\,\%$ del presupuesto debe ejecutarse en los **seis departamentos priorizados por heladas frecuentes** ($\mathcal{P} = \{\text{Puno, Cusco, Huancavelica, Pasco, Apurímac, La Libertad}\}$):
+   $$\sum_{i \in \mathcal{P}} \sum_{k=1}^4 c_{ik} x_{ik} \ge 0.30 \cdot B$$
+4. **Límites técnicos de absorción:**
+   $$0 \le x_{ik} \le \min\left(\text{tope\_pp}_k, 100 - \text{nivel}_{ik}\right)$$
+
+donde:
+- $x_{ik}$ son los puntos porcentuales de incremento en la palanca $k$ en el departamento $i$.
+- $v_{ik} = \beta_k \cdot \text{superficie}_i \cdot \text{precio}_i$ es el retorno monetario por punto porcentual.
+- $c_{ik}$ es el costo unitario por punto porcentual en la escala de intervención.
+
+---
+
+## 2. Sistema de Alerta Temprana 2026
+
+Antes de optimizar, se evalúa el pronóstico para la campaña 2026. Se identifican departamentos con rendimientos proyectados por debajo de su percentil 25 histórico o con severidad de heladas superior al $5\,\%$.
+
+```{r}
+#| label: tbl-alerta-2026
+#| echo: true
+ruta_alerta <- file.path(tab_dir, "alerta_2026.csv")
+if (file.exists(ruta_alerta)) {
+  alerta_df <- read_csv(ruta_alerta, show_col_types = FALSE) %>%
+    select(DEPARTAMENTO, pron_2026, lo80, hi80, helada_media, prioritario) %>%
+    mutate(
+      `Pronóstico (kg/ha)` = round(pron_2026, 0),
+      `IC 80% Conformal` = paste0("[", round(lo80, 0), " - ", round(hi80, 0), "]"),
+      `Helada (%)` = round(helada_media, 1),
+      Priorizado = if_else(prioritario, "SÍ (Vulnerable)", "No")
+    ) %>%
+    select(DEPARTAMENTO, `Pronóstico (kg/ha)`, `IC 80% Conformal`, `Helada (%)`, Priorizado)
+  
+  datatable(alerta_df, options = list(pageLength = 7), caption = "Alerta temprana para la campaña 2026 e identificación de zonas prioritarias.")
+}
+```
+
+```{r}
+#| label: fig-alerta-2026
+#| echo: false
+#| fig-cap: "Pronósticos 2026 con intervalos calibrados y departamentos en alerta."
+knitr::include_graphics(file.path(fig_dir, "r09_alerta_2026.png"))
+```
+
+---
+
+## 3. Comparación de Planes: Puntual vs. Robusto
+
+Se formulan dos estrategias de asignación:
+- **Plan puntual:** Utiliza los coeficientes $\hat{\beta}_k$ estimados por el modelo.
+- **Plan robusto:** Adopta un enfoque conservador de aversión al riesgo utilizando la cota inferior del intervalo de confianza ($\beta_k^{\text{rob}} = \max(0, \hat{\beta}_k - 1.28 \cdot \text{EE}_k)$).
+
+```{r}
+#| label: tbl-plan-palanca
+#| echo: true
+ruta_ppp <- file.path(tab_dir, "plan_por_palanca.csv")
+if (file.exists(ruta_ppp)) {
+  ppp <- read_csv(ruta_ppp, show_col_types = FALSE)
+  kable(ppp, digits = 2, caption = "Asignación presupuestaria y valor generado por palanca en cada plan.")
+}
+```
+
+> **Diferencia estratégica fundamental:** El plan robusto sustituye la inversión en crédito y asistencia técnica por **semilla certificada** (S/ 41.54 millones, $83.1\,\%$ del presupuesto total), al ser la palanca con mayor estabilidad estadística frente al error de estimación. Además, asigna de forma efectiva el **$65.0\,\%$ del presupuesto a los departamentos vulnerables a heladas**, superando ampliamente la cuota mínima del $30\,\%$.
+
+```{r}
+#| label: fig-plan-optimo
+#| echo: false
+#| fig-cap: "Distribución territorial y por palanca tecnológica del presupuesto óptimo."
+knitr::include_graphics(file.path(fig_dir, "r10_plan_optimo.png"))
+```
+
+---
+
+## 4. Análisis de Riesgo y Simulación Monte Carlo
+
+Para evaluar la solidez de los planes frente a la incertidumbre paramétrica, se realizan $10\,000$ extracciones de la distribución conjunta de coeficientes $\boldsymbol{\beta} \sim \mathcal{N}(\hat{\boldsymbol{\beta}}, \hat{\boldsymbol{\Sigma}})$.
+
+```{r}
+#| label: tbl-montecarlo
+#| echo: true
+ruta_mc <- file.path(tab_dir, "montecarlo_planes.csv")
+if (file.exists(ruta_mc)) {
+  mc_df <- read_csv(ruta_mc, show_col_types = FALSE) %>%
+    select(
+      Plan = plan,
+      `Valor Medio (S/)` = valor_medio,
+      `P05 (S/)` = p05,
+      `P95 (S/)` = p95,
+      `B/C Medio` = bc_medio,
+      `P(B/C < 1)` = prob_bc_menor_1
+    )
+  kable(mc_df, digits = 3, caption = "Distribución de resultados en simulación Monte Carlo (10,000 iteraciones).")
+}
+```
+
+El **Plan Robusto** garantiza una probabilidad de no recuperar la inversión ($B/C < 1$) de apenas **$0.59\,\%$**, con una relación beneficio/costo media de $6.12$.
+
+---
+
+## 5. Frontera Eficiente de Presupuesto y Costo de la Equidad
+
+```{r}
+#| label: fig-frontera-montecarlo
+#| echo: false
+#| fig-cap: "Frontera de presupuesto eficiente y distribuciones empíricas de beneficio/costo."
+knitr::include_graphics(file.path(fig_dir, "r11_frontera_montecarlo.png"))
+```
+
+```{r}
+#| label: tbl-costo-equidad
+#| echo: true
+ruta_eq <- file.path(tab_dir, "costo_equidad.csv")
+if (file.exists(ruta_eq)) {
+  eq_df <- read_csv(ruta_eq, show_col_types = FALSE)
+  kable(eq_df, digits = 2, caption = "Costo de oportunidad de imponer cuotas de equidad para departamentos con heladas.")
+}
+```
+
+La imposición de una cuota de equidad del $30\,\%$ tiene un costo de oportunidad de solo **S/ 314,759** (menos del $0.1\,\%$ del valor total generado), lo que demuestra que proteger a las poblaciones vulnerables de la sierra no compromete la rentabilidad macroeconómica del programa.

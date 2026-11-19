@@ -1,0 +1,48 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Analítica Prescriptiva ENA Papa (2015–2025)"
+  description: "Entorno de investigación reproducible basado en Quarto para la asignación óptima de inversión y pronóstico con historial reducido."
+  site-url: "https://finesi-unap.edu.pe"
+  navbar:
+    background: primary
+    search: true
+    left:
+      - text: "Inicio"
+        href: index.qmd
+      - text: "1. Datos y Diagnóstico"
+        href: 01_datos_diagnostico.qmd
+      - text: "2. Descriptivo"
+        href: 02_analisis_descriptivo.qmd
+      - text: "3. Predictivo"
+        href: 03_modelado_predictivo.qmd
+      - text: "4. Prescriptivo"
+        href: 04_analisis_prescriptivo.qmd
+      - text: "Dashboard"
+        href: dashboard.qmd
+      - text: "Manuscrito"
+        href: manuscrito.qmd
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    toc-title: "Contenido"
+    code-fold: show
+    code-tools: true
+    code-summary: "Código R"
+    df-print: paged
+    fig-align: center
+    fig-width: 9
+    fig-height: 5.5
+
+bibliography: references.bib
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: false

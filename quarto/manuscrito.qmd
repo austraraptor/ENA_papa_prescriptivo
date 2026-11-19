@@ -1,0 +1,171 @@
+---
+title: "Analítica prescriptiva del rendimiento de papa en el Perú: del pronóstico con historial reducido a la asignación óptima de inversión pública (ENA 2015–2025)"
+author:
+  - name: Rodrigo Claudio Rosas Tuni
+    affiliation: Facultad de Ingeniería Estadística e Informática (FINESI), Universidad Nacional del Altiplano, Puno, Perú
+date: "2026-03-11"
+lang: es
+abstract: |
+  La Encuesta Nacional Agropecuaria (ENA) del Perú provee diez campañas útiles para el análisis del cultivo de papa (2015–2025, sin 2020 por la pandemia). Este estudio trasciende la predicción estadística tradicional bajo condiciones de historial reducido para resolver un problema de decisión pública: cómo distribuir de manera óptima S/ 50 millones por campaña entre 19 departamentos y cuatro palancas tecnológicas (riego tecnificado, semilla certificada, asistencia técnica y crédito agrario), garantizando equidad para las regiones expuestas a heladas recurrentes. A partir de los microdatos originales de la ENA (139,466 registros de parcelas y 384,525 productores) se reconstruye el panel departamental balanceado con verificación estricta de integridad SHA-256. El modelado predictivo reproduce un ensamble informado con un RMSE fuera de muestra de 3,092.66 kg/ha (frente a 3,361.84 kg/ha del modelo ingenuo), complementado con calibración split-conformal que eleva la cobertura empírica del 80% nominal de 50.5% a 81.1%. Posteriormente, se estiman las elasticidades departamentales mediante efectos fijos con errores estándar robustos y se resuelve un programa lineal de asignación óptima. El plan robusto, derivado de la cota inferior conservadora de los efectos, destina el 65.0% del presupuesto a los seis departamentos priorizados por heladas, concentrándose principalmente en semilla certificada (83.1% del gasto total). La simulación Monte Carlo de 10,000 escenarios confirma un beneficio/costo esperado de 6.12 y reduce la probabilidad de no recuperar la inversión al 0.59%, demostrando que la equidad climática no compromete la rentabilidad económica del Estado.
+keywords:
+  - analítica prescriptiva
+  - programación lineal
+  - predicción conformal
+  - rendimiento de papa
+  - investigación reproducible
+format:
+  html:
+    toc: true
+    number-sections: true
+---
+
+```{r}
+#| label: setup-manuscrito
+#| include: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(knitr)
+  library(scales)
+})
+
+tab_dir <- "../ENA_papa_prescriptivo/outputs/R/tablas"
+fig_dir <- "../ENA_papa_prescriptivo/outputs/R/figuras"
+
+leer_tab <- function(f) read_csv(file.path(tab_dir, f), show_col_types = FALSE)
+```
+
+# Introducción y Planteamiento del Reto
+
+En la agricultura altoandina del Perú, la papa (*Solanum tuberosum*) representa el principal sustento de más de 700,000 familias productoras y constituye el pilar de la seguridad alimentaria nacional [@inei2025ena]. No obstante, los hacedores de políticas agrarias enfrentan una limitación estructural crítica: la disponibilidad de series estadísticas continuas y homogéneas es extremadamente breve. La Encuesta Nacional Agropecuaria (ENA) cuenta con solo diez campañas agrícolas válidas (2015 a 2025, excluyendo 2020 debido a la suspensión de las actividades de campo por la pandemia de la COVID-19).
+
+En un trabajo previo del grupo [@callohuanca2026pronostico] se abordó la predicción del rendimiento departamental bajo el marco metodológico de historial reducido propuesto por @huang2027domain, combinando covariables de dominio agronómico, validación temporal *walk-forward* y cuantificación de incertidumbre con predicción conformal [@vovk2005algorithmic]. Aquel esfuerzo respondió a la interrogante predictiva: *¿qué rendimiento se espera obtener?*
+
+Sin embargo, para una entidad pública como el Ministerio de Desarrollo Agrario y Riego (MIDAGRI) o los Gobiernos Regionales, la pregunta operativa determinante es: **¿qué decisiones adoptar con un presupuesto limitado?** La respuesta pertenece al ámbito de la **analítica prescriptiva**: determinar cuánto incrementar cuatro palancas de intervención modificables (riego tecnificado, uso de semilla certificada, asistencia técnica y crédito agrario) en cada departamento para maximizar el valor de la producción adicional de papa, imponiendo límites para no concentrar el gasto en una sola región y resguardando a los departamentos con pérdidas severas por heladas frecuentes.
+
+---
+
+# Datos, Verificación Criptográfica y Reconstrucción del Panel
+
+Para garantizar absoluta reproducibilidad y evitar el uso de bases de datos paralelas o inventadas, el pipeline se conecta directamente a los microdatos oficiales de la ENA:
+
+1. `ENA_cultivo_filas.csv`: Contiene 139,466 registros individuales de parcelas paperas cosechadas (129,915 registros válidos con rendimientos agronómicamente admisibles en $[300, 80\,000]$ kg/ha y factores de expansión estrictamente positivos).
+2. `ENA_productores.csv`: Contiene 384,525 registros de productores con información sobre prácticas tecnológicas y exposición a choques climáticos.
+3. `series_ENA_papa.xlsx`: Agregado departamental y nacional oficial publicado.
+
+La integridad física de estos tres archivos de insumo se audita al inicio de la ejecución mediante sumas de verificación criptográficas SHA-256. El panel departamental balanceado ($19 \text{ departamentos} \times 10 \text{ campañas} = 190 \text{ observaciones}$) se reconstruye aplicando ponderación microeconómica estricta:
+
+$$\bar{Y}_{it} = \frac{\sum_{j \in \Omega_{it}} w_{ijt} \cdot \text{produccion\_kg}_{ijt}}{\sum_{j \in \Omega_{it}} w_{ijt} \cdot \text{sup\_ha}_{ijt}}$$
+
+donde $\Omega_{it}$ es el conjunto de parcelas del departamento $i$ en el año $t$, y $w_{ijt}$ es el factor de expansión de la parcela. Como se resume en la @tbl-rec-resumen, la diferencia absoluta máxima entre las variables reconstruidas desde los microdatos y la serie oficial entregada en Excel es inferior a $10^{-6}$ en todas las dimensiones analizadas.
+
+```{r}
+#| label: tbl-rec-resumen
+#| echo: false
+rec_df <- leer_tab("validacion_reconstruccion.csv")
+kable(head(rec_df, 6), digits = 8, caption = "Diferencia absoluta máxima entre el panel reconstruido desde microdatos y el reporte oficial.")
+```
+
+---
+
+# Metodología Econométrica: Efectos Fijos e Inferencia Robusta
+
+Para aislar el impacto marginal de las prácticas tecnológicas de factores geográficos, climáticos o de suelo que son constantes en el tiempo para cada departamento, se estima un modelo de datos de panel con efectos fijos (estimador *Within*):
+
+$$y_{it} = \alpha_i + \beta_1 \text{riego}_{it} + \beta_2 \text{semilla}_{it} + \beta_3 \text{asistencia}_{it} + \beta_4 \text{credito}_{it} + \sum_{m} \gamma_m Z_{it}^m + \varepsilon_{it}$$
+
+donde $y_{it}$ es el rendimiento en kg/ha y $Z_{it}^m$ comprende covariables de control (fertilización, abono, capacitación, asociatividad y pérdidas por heladas y sequías). Para corregir por correlación serial residual y heterocedasticidad regional, se estiman errores estándar robustos mediante la matriz sándwich $HC_1$ [@wickham2019tidyverse; @ludecke2022easystats].
+
+```{r}
+#| label: tbl-efectos-parametros
+#| echo: false
+ef_df <- leer_tab("efectos_fijos_parametros.csv")
+kable(ef_df, digits = 3, caption = "Estimación de efectos de panel con efectos fijos y errores estándar robustos.")
+```
+
+A partir de estas estimaciones se deducen dos conjuntos de coeficientes para las cuatro palancas de intervención pública:
+1. **Coeficientes puntuales ($\hat{\beta}_k$):** El valor central estimado por el modelo.
+2. **Coeficientes robustos ($\beta_k^{\text{rob}}$):** Definidos como la cota inferior conservadora al $90\,\%$ de confianza unilateral:
+   $$\beta_k^{\text{rob}} = \max\left(0, \, \hat{\beta}_k - 1.28 \cdot \text{EE}_k\right)$$
+
+Esta especificación robusta anula el impacto asignado a palancas cuyos intervalos incluyan valores no significativos o negativos (como riego en régimen de panel donde $\hat{\beta} = 4.05, \text{EE} = 28.95$), protegiendo el erario público ante sobrestimaciones optimistas.
+
+---
+
+# Marco Predictivo y Calibración Conformal
+
+Siguiendo el protocolo de @callohuanca2026pronostico, se evalúan seis modelos de pronóstico mediante un esquema *walk-forward* de origen expansivo para el quinquenio 2021–2025. Los resultados se resumen en la @tbl-modelos-comp.
+
+```{r}
+#| label: tbl-modelos-comp
+#| echo: false
+mod_df <- leer_tab("cuadro2_modelos.csv")
+kable(mod_df, digits = 2, caption = "Desempeño predictivo fuera de muestra (2021–2025) por arquitectura.")
+```
+
+El **Ensamble informado** (combinación ponderada de modelos lineales penalizados y gradient boosting con restricciones monótonas) alcanza el menor error de predicción con un RMSE de **$3\,092.66$ kg/ha**, superando al benchmark ingenuo Naive Lag1 ($3\,361.84$ kg/ha) y al XGBoost estándar ($3\,300.15$ kg/ha) [@chen2016xgboost].
+
+Asimismo, la cuantificación de incertidumbre mediante predicción *split-conformal* [@vovk2005algorithmic] demuestra ser indispensable en presencia de choques asimétricos: mientras que los intervalos teóricos gaussianos presentan una cobertura de apenas $50.5\,\%$ frente a un $80\,\%$ nominal, la calibración conformal corrige la cobertura empírica hasta el **$81.05\,\%$**, con una reducción paralela de la penalización de Winkler.
+
+---
+
+# Formulación Prescriptiva y Optimización Matemática
+
+Habiendo validado la predictibilidad y los efectos marginales, el problema prescriptivo se formula como un **programa lineal de optimización con restricciones de equidad regional**:
+
+$$\max_{\mathbf{x}} \sum_{i=1}^{19} \sum_{k=1}^4 v_{ik} x_{ik}$$
+
+sujeto a:
+
+$$\begin{aligned}
+\sum_{i=1}^{19} \sum_{k=1}^4 c_{ik} x_{ik} &\le B && \text{(Presupuesto global: S/ 50 millones)} \\
+\sum_{k=1}^4 c_{ik} x_{ik} &\le 0.20 \cdot B \quad \forall i && \text{(Tope de concentración regional: 20\%)} \\
+\sum_{i \in \mathcal{P}} \sum_{k=1}^4 c_{ik} x_{ik} &\ge 0.30 \cdot B && \text{(Cuota de equidad para zonas con heladas)} \\
+0 \le x_{ik} &\le \min\left(\text{tope\_pp}_k, 100 - \text{nivel}_{ik}\right) && \text{(Factibilidad agronómica)}
+\end{aligned}$$
+
+donde $\mathcal{P} = \{\text{Puno, Cusco, Huancavelica, Pasco, Apurímac, La Libertad}\}$ representa los departamentos identificados en alerta climática con pérdidas históricas por heladas superiores al $5\,\%$.
+
+---
+
+# Resultados: Asignación Prescriptiva y Evaluación de Riesgo
+
+La resolución del programa lineal arroja diferencias estructurales profundas entre la formulación puntual y la formulación robusta (@tbl-planes-resumen).
+
+```{r}
+#| label: tbl-planes-resumen
+#| echo: false
+ppp_df <- leer_tab("plan_por_palanca.csv")
+kable(ppp_df, digits = 2, caption = "Distribución del presupuesto de S/ 50 millones y retorno esperado por palanca.")
+```
+
+En el **Plan Robusto**:
+- El presupuesto se reconduce masivamente hacia la **semilla certificada** (S/ 41.54 millones, $83.1\,\%$ del total), la cual ofrece el efecto positivo más robusto ante incertidumbre econométrica.
+- La asistencia técnica absorbe el remanente (S/ 8.46 millones), priorizando departamentos con alta densidad de productores por hectárea.
+- El **$65.0\,\%$ de la inversión total se destina a departamentos con heladas frecuentes**, superando con holgura la cuota obligatoria del $30\,\%$.
+
+La simulación Monte Carlo de $10\,000$ realizaciones del vector de coeficientes confirma que el Plan Robusto presenta una **probabilidad de no recuperar la inversión ($B/C < 1$) de apenas $0.59\,\%$**, frente a un $3.81\,\%$ del plan puntual, con una relación beneficio/costo media de $6.12$.
+
+Asimismo, la frontera de presupuesto eficiente (@tbl-presupuesto-ef) revela que la inversión pública en rendimiento de papa ofrece rendimientos marginales netos positivos ($v' > 1$) hasta un techo de **S/ 130 millones por campaña** bajo supuestos conservadores.
+
+```{r}
+#| label: tbl-presupuesto-ef
+#| echo: false
+pe_df <- leer_tab("presupuesto_eficiente.csv")
+kable(pe_df, caption = "Presupuesto máximo eficiente antes de agotamiento de retornos marginales.")
+```
+
+---
+
+# Conclusiones y Recomendaciones de Política
+
+1. **Integridad empírica:** El panel departamental se reconstruyó con plena fidelidad matemática respecto a las cifras oficiales del INEI, descartando la necesidad de recurrir a bases de datos ficticias o aproximadas.
+2. **Valor del ensamble y calibración:** En condiciones de historial reducido, el ensamble informado reduce significativamente el error de predicción en zonas de heladas frecuentes, mientras que la predicción conformal es imperativa para evitar subestimar la incertidumbre climática.
+3. **Prescripción robusta sobre puntual:** La optimización lineal muestra que confiar ciegamente en estimaciones puntuales puede sobreasignar fondos a palancas estadísticamente frágiles. El enfoque conservador prioriza la semilla certificada en el sur andino (Puno, Cusco, Huancavelica), reduciendo el riesgo de pérdida a menos de seis por mil.
+4. **Costo insignificante de la equidad:** Destinar al menos el $30\,\%$ del presupuesto a zonas vulnerables por heladas tiene un costo de oportunidad de apenas el $0.06\,\%$ del beneficio total (S/ 314,759), demostrando que la justicia territorial es plenamente compatible con la eficiencia económica.
+
+---
+
+# Referencias {.unnumbered}
+
+::: {#refs}
+:::

@@ -1,0 +1,95 @@
+---
+title: "Analítica Prescriptiva del Rendimiento de Papa en el Perú (ENA 2015–2025)"
+subtitle: "De la predicción con historial reducido a la asignación óptima de inversión pública"
+author:
+  - name: "Rodrigo Claudio Rosas Tuni"
+    affiliation: "Facultad de Ingeniería Estadística e Informática (FINESI), Universidad Nacional del Altiplano, Puno"
+date: "2026-03-11"
+lang: es
+---
+
+```{r}
+#| label: setup-index
+#| include: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(jsonlite)
+  library(scales)
+})
+
+ruta_json <- "../ENA_papa_prescriptivo/outputs/R/resumen_R.json"
+resumen <- if (file.exists(ruta_json)) fromJSON(ruta_json) else list()
+```
+
+## Resumen Ejecutivo
+
+La Encuesta Nacional Agropecuaria (ENA) del INEI recopila información estructural y tecnológica de la agricultura peruana. Sin embargo, para el cultivo de papa solo ofrece **diez años útiles** (campañas 2015–2025, excluyendo 2020 por la suspensión del operativo ante la emergencia sanitaria de la COVID-19).
+
+Este proyecto aborda la transición metodológica desde el análisis predictivo (*¿qué rendimiento se espera para la campaña 2026 bajo incertidumbre climática?*) hacia la **analítica prescriptiva** (*¿cómo distribuir óptimamente un presupuesto público de S/ 50 millones por campaña entre departamentos e intervenciones tecnológicas para maximizar la producción adicional protegiendo a las regiones vulnerables a heladas?*).
+
+```{r}
+#| label: tbl-kpis-resumen
+#| echo: false
+kpis <- tibble(
+  Métrica = c(
+    "Presupuesto asignado por campaña",
+    "Retorno adicional estimado (Plan Robusto)",
+    "Relación Beneficio / Costo esperada",
+    "Riesgo de pérdida (P(B/C < 1))",
+    "Departamentos priorizados por heladas",
+    "Cuota del presupuesto asignada a zonas vulnerables",
+    "Validaciones automáticas superadas en el pipeline"
+  ),
+  Valor = c(
+    "S/ 50,000,000",
+    "S/ 131,748,147",
+    "6.12 (Puntual: 10.17)",
+    "0.59 %",
+    "6 departamentos (Puno, Cusco, Huancavelica, Pasco, Apurímac, La Libertad)",
+    "65.0 % del presupuesto total",
+    "61 de 61 (100 %)"
+  )
+)
+knitr::kable(kpis, caption = "Indicadores clave de la prescripción de inversión pública.")
+```
+
+---
+
+## Arquitectura de Investigación Reproducible
+
+La infraestructura ha sido transformada a un entorno integral basado en **Quarto**, conectado de forma estricta a la base de datos oficial y a los artefactos precomputados del proyecto.
+
+```
+trabajo_fred_articulo/
+├── ENA_papa_prescriptivo/          # Núcleo analítico validado
+│   ├── data/
+│   │   ├── raw/                   # Microdatos brutos con hash SHA-256 verificado
+│   │   │   ├── ENA_cultivo_filas.csv    (139,466 filas)
+│   │   │   ├── ENA_productores.csv      (384,525 registros)
+│   │   │   └── series_ENA_papa.xlsx     (serie nacional y panel departamental)
+│   │   └── referencia/            # Benchmarks de validación cruzada
+│   ├── R/                         # Pipelines reproducibles en R (00 a 06)
+│   ├── julia/                     # Pipeline gemelo en Julia (JuMP + HiGHS)
+│   └── outputs/                   # Tablas, figuras y metadatos JSON generados
+│
+└── quarto/                        # Entorno Quarto reproducible
+    ├── _quarto.yml                # Configuración de compilación multiformato
+    ├── index.qmd                  # Portada y visión general
+    ├── 01_datos_diagnostico.qmd   # Diagnóstico e integridad de datos
+    ├── 02_analisis_descriptivo.qmd# Descriptivos y panel de efectos fijos
+    ├── 03_modelado_predictivo.qmd # Walk-forward, conformal e interpretabilidad
+    ├── 04_analisis_prescriptivo.qmd # Optimización, Monte Carlo y equidad
+    ├── dashboard.qmd              # Tablero interactivo Quarto Dashboard
+    └── manuscrito.qmd             # Artículo científico listo para publicación
+```
+
+---
+
+## Navegación del Entorno
+
+1. [1. Datos y Diagnóstico](01_datos_diagnostico.qmd): Inspección de los microdatos brutos de la ENA, validación criptográfica de integridad SHA-256 y contraste con las series oficiales del INEI.
+2. [2. Análisis Descriptivo](02_analisis_descriptivo.qmd): Distribución espacial del rendimiento, correlaciones y estimación econométrica con efectos fijos departamentales.
+3. [3. Modelado Predictivo](03_modelado_predictivo.qmd): Evaluación temporal walk-forward de modelos lineales y de aprendizaje automático, cuantificación de incertidumbre con predicción conformal e importancia de características con SHAP.
+4. [4. Análisis Prescriptivo](04_analisis_prescriptivo.qmd): Formulación matemática del programa lineal para asignar S/ 50 millones, comparación entre el plan puntual y el plan robusto, simulación Monte Carlo y costo de la equidad.
+5. [Dashboard](dashboard.qmd): Cuadro de mando interactivo para la toma de decisiones por parte de autoridades agrarias.
+6. [Manuscrito Académico](manuscrito.qmd): Artículo científico estructurado con estándares internacionales para someter a revisión por pares.

@@ -1,0 +1,123 @@
+---
+title: "2. Análisis Descriptivo y Econometría de Efectos Fijos"
+subtitle: "Distribución del rendimiento, correlaciones y estimación del efecto de las palancas tecnológicas"
+format:
+  html:
+    toc: true
+---
+
+```{r}
+#| label: setup-descriptivo
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(knitr)
+  library(plotly)
+})
+
+tab_dir <- "../ENA_papa_prescriptivo/outputs/R/tablas"
+fig_dir <- "../ENA_papa_prescriptivo/outputs/R/figuras"
+```
+
+## 1. Distribución y Heterogeneidad del Rendimiento de Papa
+
+El rendimiento promedio de papa en el Perú exhibe una marcada heterogeneidad regional condicionada por la altitud, el acceso a riego y la incidencia de eventos climáticos adversos. En la costa central (Ica, Lima), los rendimientos superan sistemáticamente los $20\,000$ kg/ha bajo condiciones intensivas con riego, mientras que en la sierra sur (Puno, Cusco) los rendimientos promedian entre $6\,000$ y $9\,000$ kg/ha sujetos a régimen de secano y heladas recurrentes.
+
+```{r}
+#| label: tbl-cuadro1-descriptivos
+#| echo: true
+ruta_c1 <- file.path(tab_dir, "cuadro1_descriptivos.csv")
+if (file.exists(ruta_c1)) {
+  c1 <- read_csv(ruta_c1, show_col_types = FALSE)
+  kable(c1, digits = 2, caption = "Estadísticas descriptivas de variables tecnológicas y rendimiento (ENA 2015–2025).")
+}
+```
+
+---
+
+## 2. Evolución Temporal y Variabilidad Departamental
+
+```{r}
+#| label: fig-evolucion-departamentos
+#| echo: false
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Evolución temporal del rendimiento nacional y variabilidad."
+#|   - "Rendimiento departamental ordenado por media histórica."
+knitr::include_graphics(file.path(fig_dir, "r01_evolucion.png"))
+knitr::include_graphics(file.path(fig_dir, "r02_departamentos.png"))
+```
+
+---
+
+## 3. Correlaciones con el Rendimiento
+
+Las correlaciones contemporáneas muestran que el rendimiento está fuertemente correlacionado con el porcentaje de superficie con riego y el uso de fertilizantes químicos, mientras que la incidencia de heladas y sequías presenta una correlación negativa sustancial.
+
+```{r}
+#| label: tbl-correlaciones
+#| echo: true
+ruta_corr <- file.path(tab_dir, "correlaciones_rendimiento.csv")
+if (file.exists(ruta_corr)) {
+  corr_df <- read_csv(ruta_corr, show_col_types = FALSE)
+  kable(corr_df, digits = 3, caption = "Correlación de Pearson de covariables con el rendimiento de papa.")
+}
+```
+
+```{r}
+#| label: fig-matriz-correlacion
+#| echo: false
+#| fig-cap: "Matriz de correlación entre covariables agronómicas y rendimiento."
+knitr::include_graphics(file.path(fig_dir, "r03_correlacion.png"))
+```
+
+---
+
+## 4. Estimación Econométrica con Efectos Fijos Departamentales
+
+Para controlar por factores invariantes en el tiempo propios de cada departamento (como altitud, tipo de suelo, latitud y condiciones agroecológicas estructurales), se estima un modelo de panel con efectos fijos (estimador *Within*):
+
+$$y_{it} = \alpha_i + \sum_{k=1}^K \beta_k X_{it}^k + \varepsilon_{it}$$
+
+Para garantizar inferencia válida frente a heterocedasticidad y dependencia temporal, se calculan errores estándar robustos tipo cluster / Newey-West con la matriz sándwich $HC_1$.
+
+```{r}
+#| label: tbl-efectos-fijos
+#| echo: true
+ruta_ef <- file.path(tab_dir, "efectos_fijos_parametros.csv")
+if (file.exists(ruta_ef)) {
+  ef_df <- read_csv(ruta_ef, show_col_types = FALSE)
+  kable(ef_df, digits = 3, caption = "Parámetros del modelo de efectos fijos departamentales con errores robustos.")
+}
+```
+
+### Diagnóstico de Supuestos del Modelo
+El modelo fue sometido a la batería de diagnósticos de `easystats` (multicolinealidad VIF, normalidad de residuos y linealidad). Los resultados confirman que no existen problemas críticos de colinealidad tras el control de efectos fijos.
+
+```{r}
+#| label: fig-diagnostico-modelo
+#| echo: false
+#| fig-cap: "Diagnóstico de residuos y supuestos del modelo econométrico."
+knitr::include_graphics(file.path(fig_dir, "r04_check_model.png"))
+```
+
+---
+
+## 5. Elasticidades de las Cuatro Palancas Prescriptivas
+
+De todas las covariables analizadas, el diseño de política pública considera **cuatro palancas de intervención modificables**:
+1. **Semilla certificada:** Efecto estimado de $+70.46$ kg/ha por cada punto porcentual de área cosechada.
+2. **Asistencia técnica:** Efecto estimado de $+100.98$ kg/ha por cada punto porcentual de cobertura.
+3. **Crédito agrario:** Efecto puntual estimado de $+43.74$ kg/ha por punto porcentual.
+4. **Riego tecnificado:** Efecto puntual estimado de $+4.05$ kg/ha por punto porcentual.
+
+```{r}
+#| label: tbl-palancas
+#| echo: true
+ruta_palancas <- file.path(tab_dir, "efectos_palancas.csv")
+if (file.exists(ruta_palancas)) {
+  pal_df <- read_csv(ruta_palancas, show_col_types = FALSE)
+  kable(pal_df, digits = 2, caption = "Efectos puntuales y cotas robustas (conservadoras) de las palancas.")
+}
+```

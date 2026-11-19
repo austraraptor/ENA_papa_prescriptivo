@@ -1,0 +1,140 @@
+---
+title: "1. Diagnóstico de la Base de Datos Existente e Integridad"
+subtitle: "Auditoría de microdatos de la ENA, verificación criptográfica SHA-256 y reconstrucción de panel"
+format:
+  html:
+    toc: true
+---
+
+```{r}
+#| label: setup-datos
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(readxl)
+  library(digest)
+  library(DT)
+  library(knitr)
+})
+
+raiz_datos <- "../ENA_papa_prescriptivo/data"
+raiz_tablas <- "../ENA_papa_prescriptivo/outputs/R/tablas"
+```
+
+## Resumen del Diagnóstico
+
+El proyecto se fundamenta de forma estricta en la **Encuesta Nacional Agropecuaria (ENA)** compilada por el Instituto Nacional de Estadística e Informática (INEI) para el periodo 2015–2025. 
+
+> **Regla de integridad:** No se generan registros sintéticos ni se descargan bases de datos sustitutas. La información primaria existente es la única fuente de verdad para todas las fases del modelado.
+
+---
+
+## 1. Verificación Criptográfica de Archivos de Entrada
+
+Cada insumo de datos crudos dispone de una huella digital SHA-256 registrada de forma inmutable. Cualquier alteración de un solo byte en los archivos de origen invalidaría la reproducibilidad del proyecto.
+
+```{r}
+#| label: tbl-sha256
+#| echo: true
+archivos_insumo <- list(
+  "Microdatos de Cultivo" = file.path(raiz_datos, "raw", "ENA_cultivo_filas.csv"),
+  "Microdatos de Productores" = file.path(raiz_datos, "raw", "ENA_productores.csv"),
+  "Series Oficiales de Papa" = file.path(raiz_datos, "raw", "series_ENA_papa.xlsx")
+)
+
+sha_oficiales <- c(
+  "7ad30d56d047e88d77d648c883c5854f7cc49735a2745c379f154652e475e6a4",
+  "57988a3ad07fa83c63533a4fb6d196f7abafa42e1d68548d0e7c4431040401eb",
+  "37026ebabe7f09eca560e912da6033f2487d6a5098c6c4b7a1c00c01213bf3b3"
+)
+
+tabla_integridad <- tibble(
+  Insumo = names(archivos_insumo),
+  Ruta = unlist(archivos_insumo),
+  Existe = file.exists(Ruta),
+  Tamaño_MB = round(file.info(Ruta)$size / (1024^2), 2),
+  SHA256_Calculado = sapply(Ruta, function(f) if(file.exists(f)) digest(file = f, algo = "sha256") else NA_character_),
+  SHA256_Esperado = sha_oficiales,
+  Integridad = if_else(SHA256_Calculado == SHA256_Esperado, "VÁLIDO (Exacto)", "ERROR")
+) %>%
+  select(Insumo, Tamaño_MB, SHA256_Calculado, Integridad)
+
+kable(tabla_integridad, caption = "Verificación criptográfica SHA-256 de los insumos originales de la ENA.")
+```
+
+---
+
+## 2. Inspección Estructural de los Microdatos
+
+### 2.1 Microdatos de Cultivo (`ENA_cultivo_filas.csv`)
+- **Total de registros brutos:** 139,466 filas que representan parcelas cosechadas de papa reportadas por productores agropecuarios en el territorio nacional.
+- **Filas válidas:** 129,915 filas que cumplen los filtros de consistencia agronómica fijados por el INEI (rendimiento acotado en $[300, 80\,000]$ kg/ha y factor de expansión $w > 0$).
+- **Tratamiento del año 2020:** Ningún registro de cultivo o productor existe para 2020 debido a la suspensión de la recolección presencial de la ENA por la emergencia de la COVID-19.
+
+### 2.2 Microdatos de Productores (`ENA_productores.csv`)
+- **Total de registros:** 384,525 productores agrarios entrevistados.
+- **Variables tecnológicas:** Riego tecnificado, uso de semilla certificada, fertilizantes químicos, abono orgánico, asistencia técnica, capacitación, crédito agrario y asociatividad.
+- **Variables de vulnerabilidad:** Pérdidas declaradas por heladas y sequías.
+
+---
+
+## 3. Reconstrucción Microeconómica vs. Series Oficiales
+
+Para asegurar la rigurosidad del análisis, el panel departamental agregado no se tomó como un dato ciego: el pipeline reconstruye las sumas ponderadas y medias a partir de los microdatos brutos individuales usando los factores de expansión oficiales (`factor` y `w`).
+
+La @tbl-reconstruccion muestra la diferencia absoluta máxima entre las variables reconstruidas desde los microdatos y las reportadas en el archivo oficial `series_ENA_papa.xlsx`.
+
+```{r}
+#| label: tbl-reconstruccion
+#| echo: true
+ruta_val_rec <- file.path(raiz_tablas, "validacion_reconstruccion.csv")
+if (file.exists(ruta_val_rec)) {
+  val_rec <- read_csv(ruta_val_rec, show_col_types = FALSE) %>%
+    mutate(
+      Diferencia_Absoluta = sprintf("%.2e", dif_abs_max),
+      Coincidencia = if_else(dif_abs_max < 1e-6, "Coincidencia exacta (< 1e-6)", "Discrepancia")
+    ) %>%
+    select(Variable = variable, Diferencia_Absoluta, Coincidencia)
+  
+  kable(val_rec, caption = "Contraste de reconstrucción de microdatos vs. agregados oficiales.")
+}
+```
+
+---
+
+## 4. Estructura del Panel Balanceado de Análisis
+
+El conjunto de datos final de trabajo, [panel_analisis.csv](file:///C:/Users/cuervo/OneDrive/Documents/trabajo_fred_articulo/ENA_papa_prescriptivo/outputs/R/tablas/panel_analisis.csv), posee una estructura de panel balanceado:
+
+- **Departamentos:** 19 departamentos paperos con presencia continua en las diez campañas (se excluyen Loreto y San Martín por no registrar producción continua de papa).
+- **Periodo temporal:** 10 campañas agrícolas (2015, 2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024 y 2025).
+- **Dimensiones:** $19 \times 10 = 190$ observaciones departamentales.
+- **Imputación temporal de crédito:** En 2021 la variable crédito agrario no fue relevada en la encuesta; se imputó mediante persistencia hacia adelante (*forward-fill*) desde 2019 para evitar cualquier fuga de información futura.
+
+```{r}
+#| label: tbl-panel-interactivo
+#| echo: true
+ruta_panel <- file.path(raiz_tablas, "panel_analisis.csv")
+panel <- read_csv(ruta_panel, show_col_types = FALSE)
+
+panel_vista <- panel %>%
+  select(
+    ANIO, DEPARTAMENTO,
+    `Rendimiento (kg/ha)` = rendimiento_kg_ha,
+    `Superficie (ha)` = superficie_cosechada_ha,
+    `Riego (%)` = pct_area_con_riego,
+    `Semilla Cert. (%)` = pct_area_semilla_cert,
+    `Asistencia (%)` = pct_asist,
+    `Crédito (%)` = pct_credito,
+    `Helada (%)` = pct_perd_helada
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+datatable(
+  panel_vista,
+  options = list(pageLength = 10, scrollX = TRUE),
+  caption = "Panel balanceado de análisis (190 observaciones, 19 departamentos x 10 años).",
+  filter = "top"
+)
+```

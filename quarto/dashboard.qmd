@@ -1,0 +1,324 @@
+---
+title: "Tablero de Decisiones Prescriptivas: Asignación Óptima ENA Papa"
+author: "Rodrigo Claudio Rosas Tuni — FINESI, UNA Puno"
+format:
+  dashboard:
+    orientation: rows
+    nav-buttons:
+      - icon: house
+        href: index.html
+---
+
+```{r}
+#| label: setup-dashboard
+#| include: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(plotly)
+  library(DT)
+  library(scales)
+})
+
+tab_dir <- "../ENA_papa_prescriptivo/outputs/R/tablas"
+
+# Cargar tablas oficiales
+alerta_2026  <- read_csv(file.path(tab_dir, "alerta_2026.csv"), show_col_types = FALSE)
+plan_palanca <- read_csv(file.path(tab_dir, "plan_por_palanca.csv"), show_col_types = FALSE)
+plan_robusto <- read_csv(file.path(tab_dir, "plan_robusto.csv"), show_col_types = FALSE) %>%
+  left_join(select(alerta_2026, DEPARTAMENTO, prioritario), by = "DEPARTAMENTO") %>%
+  mutate(prioritario = replace_na(prioritario, FALSE))
+plan_puntual <- read_csv(file.path(tab_dir, "plan_puntual.csv"), show_col_types = FALSE)
+montecarlo   <- read_csv(file.path(tab_dir, "montecarlo_planes.csv"), show_col_types = FALSE)
+panel        <- read_csv(file.path(tab_dir, "panel_analisis.csv"), show_col_types = FALSE)
+```
+
+# Resumen de Decisión
+
+## Row {height=25%}
+
+```{r}
+#| content: valuebox
+#| title: "Presupuesto Asignado"
+list(
+  icon = "cash-coin",
+  color = "primary",
+  value = "S/ 50.0 M"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Retorno Plan Robusto"
+list(
+  icon = "graph-up-arrow",
+  color = "success",
+  value = "S/ 131.75 M"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Beneficio / Costo Medio"
+list(
+  icon = "pie-chart",
+  color = "info",
+  value = "6.12"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Riesgo de Pérdida (B/C < 1)"
+list(
+  icon = "shield-check",
+  color = "warning",
+  value = "0.59 %"
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Inversión en Heladas"
+list(
+  icon = "snow",
+  color = "secondary",
+  value = "65.0 %"
+)
+```
+
+## Row {height=75%}
+
+### Asignación Presupuestaria por Palanca {width=55%}
+
+```{r}
+#| title: "Comparación de Gasto por Palanca: Puntual vs. Robusto"
+p_pal <- plot_ly(
+  plan_palanca,
+  x = ~palanca,
+  y = ~round(costo / 1e6, 2),
+  color = ~plan,
+  colors = c("#1E3A8A", "#0F766E"),
+  type = "bar",
+  text = ~paste0("S/ ", round(costo / 1e6, 2), " M<br>Valor: S/ ", round(valor / 1e6, 1), " M"),
+  hoverinfo = "text"
+) %>%
+  layout(
+    barmode = "group",
+    xaxis = list(title = "Palanca Tecnológica"),
+    yaxis = list(title = "Presupuesto (Millones de Soles)"),
+    legend = list(title = list(text = "Estrategia"), orientation = "h", y = 1.1)
+  )
+p_pal
+```
+
+### Síntesis de Planes Prescriptivos {width=45%}
+
+```{r}
+#| title: "Métricas Consolidadas de Optimización"
+tabla_sintesis <- tibble(
+  Dimensión = c(
+    "Presupuesto Invertido",
+    "Producción Adicional Estimada",
+    "Valor Monetario Adicional",
+    "Precio Sombra (retorno por sol extra)",
+    "Palanca Predominante",
+    "Cuota a Departamentos con Heladas"
+  ),
+  `Plan Puntual` = c(
+    "S/ 50.00 M",
+    "397,448 t",
+    "S/ 509.77 M",
+    "S/ 6.00 por sol extra",
+    "Asistencia técnica (86.8%)",
+    "30.0% (cuota mínima)"
+  ),
+  `Plan Robusto (Recomendado)` = c(
+    "S/ 50.00 M",
+    "83,255 t",
+    "S/ 131.75 M",
+    "S/ 2.20 por sol extra",
+    "Semilla certificada (83.1%)",
+    "65.0% (priorización efectiva)"
+  )
+)
+knitr::kable(tabla_sintesis)
+```
+
+# Asignación Departamental
+
+## Row {height=50%}
+
+### Distribución Territorial del Presupuesto {width=60%}
+
+```{r}
+#| title: "Inversión por Departamento en el Plan Robusto"
+depto_gasto <- plan_robusto %>%
+  group_by(DEPARTAMENTO, prioritario) %>%
+  summarise(Gasto_M = sum(costo) / 1e6, .groups = "drop") %>%
+  arrange(desc(Gasto_M))
+
+p_dep <- plot_ly(
+  depto_gasto,
+  x = ~reorder(DEPARTAMENTO, Gasto_M),
+  y = ~round(Gasto_M, 2),
+  type = "bar",
+  color = ~if_else(prioritario, "Prioritario (Heladas)", "Regular"),
+  colors = c("#0F766E", "#64748B"),
+  text = ~paste0(DEPARTAMENTO, ": S/ ", round(Gasto_M, 2), " M"),
+  hoverinfo = "text"
+) %>%
+  layout(
+    xaxis = list(title = "Departamento"),
+    yaxis = list(title = "Presupuesto Asignado (Millones S/)"),
+    legend = list(title = list(text = "Régimen Climático"), orientation = "h", y = 1.1)
+  )
+p_dep
+```
+
+### Concentración Departamental {width=40%}
+
+```{r}
+#| title: "Principales Receptores de Inversión"
+top_deptos <- depto_gasto %>%
+  mutate(
+    `Inversión (S/)` = paste0("S/ ", round(Gasto_M, 2), " M"),
+    `% del Total` = paste0(round(100 * Gasto_M / 50, 1), " %"),
+    `Zona Vulnerable` = if_else(prioritario, "SÍ", "No")
+  ) %>%
+  select(Departamento = DEPARTAMENTO, `Inversión (S/)`, `% del Total`, `Zona Vulnerable`)
+
+knitr::kable(head(top_deptos, 7))
+```
+
+## Row {height=50%}
+
+### Detalle Completo de Asignación por Departamento y Palanca {width=100%}
+
+```{r}
+#| title: "Desglose Operativo del Plan Robusto"
+detalle_plan <- plan_robusto %>%
+  mutate(
+    `Presupuesto (S/)` = round(costo, 0),
+    `Incremento (pp)` = round(pp, 2),
+    `Producción Adic. (t)` = round(t_adic, 1),
+    `Valor Generado (S/)` = round(valor, 0),
+    `Prioritario` = if_else(prioritario, "SÍ", "No")
+  ) %>%
+  select(
+    Departamento = DEPARTAMENTO,
+    Palanca = palanca,
+    `Incremento (pp)`,
+    `Presupuesto (S/)`,
+    `Producción Adic. (t)`,
+    `Valor Generado (S/)`,
+    Prioritario
+  )
+
+datatable(
+  detalle_plan,
+  options = list(pageLength = 8, scrollX = TRUE),
+  caption = "Detalle de intervenciones prescriptivas del Plan Robusto."
+)
+```
+
+# Análisis de Riesgo
+
+## Row {height=50%}
+
+### Evaluación de Robustez Monte Carlo {width=60%}
+
+```{r}
+#| title: "Distribución del Ratio Beneficio / Costo (10,000 Simulaciones)"
+p_mc <- plot_ly(
+  montecarlo,
+  x = ~plan,
+  y = ~bc_medio,
+  type = "bar",
+  error_y = list(
+    type = "data",
+    symmetric = FALSE,
+    array = ~p95 - bc_medio,
+    arrayminus = ~bc_medio - p05,
+    color = "#0F172A"
+  ),
+  color = ~plan,
+  colors = c("#1E3A8A", "#0F766E")
+) %>%
+  layout(
+    xaxis = list(title = "Estrategia"),
+    yaxis = list(title = "Relación Beneficio / Costo (con IC 90% Monte Carlo)"),
+    showlegend = FALSE
+  )
+p_mc
+```
+
+### Tabla de Riesgo y Pérdida {width=40%}
+
+```{r}
+#| title: "Métricas Estadísticas de Incertidumbre"
+tabla_mc <- montecarlo %>%
+  mutate(
+    `Valor Medio` = paste0("S/ ", round(valor_medio / 1e6, 1), " M"),
+    `Percentil 5%` = paste0("S/ ", round(p05 / 1e6, 1), " M"),
+    `Percentil 95%` = paste0("S/ ", round(p95 / 1e6, 1), " M"),
+    `B/C Medio` = round(bc_medio, 2),
+    `P(B/C < 1)` = paste0(round(prob_bc_menor_1 * 100, 2), " %")
+  ) %>%
+  select(Plan = plan, `Valor Medio`, `Percentil 5%`, `Percentil 95%`, `B/C Medio`, `P(B/C < 1)`)
+
+knitr::kable(tabla_mc)
+```
+
+## Row {height=50%}
+
+### Frontera de Presupuesto Eficiente {width=100%}
+
+```{r}
+#| title: "Retorno Marginal de Expansión Presupuestaria"
+frontera <- read_csv(file.path(tab_dir, "frontera_presupuesto.csv"), show_col_types = FALSE)
+
+p_front <- plot_ly(
+  frontera,
+  x = ~round(B / 1e6, 1),
+  y = ~round(valor / 1e6, 1),
+  color = ~tipo,
+  colors = c("#1E3A8A", "#0F766E"),
+  type = "scatter",
+  mode = "lines+markers"
+) %>%
+  layout(
+    xaxis = list(title = "Presupuesto Total (Millones de Soles)"),
+    yaxis = list(title = "Valor Adicional Generado (Millones de Soles)"),
+    legend = list(title = list(text = "Estrategia"), orientation = "h", y = 1.1)
+  )
+p_front
+```
+
+# Datos y Metadatos
+
+## Row {height=100%}
+
+### Explorador del Panel Departamental Oficial (190 observaciones) {width=100%}
+
+```{r}
+#| title: "Panel Balanceado ENA 2015–2025"
+panel_tab <- panel %>%
+  select(
+    Año = ANIO,
+    Departamento = DEPARTAMENTO,
+    `Rendimiento (kg/ha)` = rendimiento_kg_ha,
+    `Superficie (ha)` = superficie_cosechada_ha,
+    `Riego (%)` = pct_area_con_riego,
+    `Semilla Cert. (%)` = pct_area_semilla_cert,
+    `Asistencia (%)` = pct_asist,
+    `Crédito (%)` = pct_credito,
+    `Helada (%)` = pct_perd_helada
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+datatable(
+  panel_tab,
+  options = list(pageLength = 12, scrollX = TRUE),
+  caption = "Panel balanceado departamental oficial reconstruido desde microdatos ENA."
+)
+```
